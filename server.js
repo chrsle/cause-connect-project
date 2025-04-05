@@ -5,96 +5,93 @@ const sanitizeHTML = require('sanitize-html')
 const bcrypt = require("bcrypt")
 const cookieParser = require("cookie-parser")
 const express = require("express")
-const db = require ("better-sqlite3")("ourApp.db")
-db.pragma("journal_mode = WAL")
 
-//database setup here
-const createTables = db.transaction(() => {
-    db.prepare(`
-        CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username STRING NOT NULL UNIQUE,
-        password STRING NOT NULL,
-        user_type STRING
-        )
-        `).run()
+const { createClient } = require('@libsql/client');
 
-        db.prepare(`
+const db = createClient({
+    url: process.env.TURSO_DATABASE_URL,  
+    authToken: process.env.TURSO_AUTH_TOKEN  
+});
+
+// Database setup
+async function createTables() {
+    try {
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                password TEXT NOT NULL,
+                user_type TEXT
+            )
+        `);
+
+        await db.execute(`
             CREATE TABLE IF NOT EXISTS posts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title STRING NOT NULL,
-            body TEXT NOT NULL,
-            createdDate TEXT,
-            authorid INTEGER,
-            FOREIGN KEY (authorid) REFERENCES users (id)
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                createdDate TEXT,
+                authorid INTEGER,
+                FOREIGN KEY (authorid) REFERENCES users (id)
             )
+        `);
 
-            `).run()
-
-        db.prepare(`
+        await db.execute(`
             CREATE TABLE IF NOT EXISTS student_profiles(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER UNIQUE,
-            full_name TEXT,
-            age INTEGER,
-            school TEXT,
-            bio TEXT,
-            interests TEXT,
-            FOREIGN KEY (user_id) REFERENCES users(id)
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER UNIQUE,
+                full_name TEXT,
+                age INTEGER,
+                school TEXT,
+                bio TEXT,
+                interests TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id)
             )
+        `);
 
-            `).run()
-
-        db.prepare(`
+        await db.execute(`
             CREATE TABLE IF NOT EXISTS nonprofit_profiles(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            nonprofit_name TEXT,
-            location TEXT,
-            category TEXT,
-            statement TEXT,
-            FOREIGN KEY (user_id) REFERENCES users(id)
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                nonprofit_name TEXT,
+                location TEXT,
+                category TEXT,
+                statement TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id)
             )
-            `).run()
+        `);
 
-        
+        console.log("✅ Tables ensured successfully!");
+    } catch (err) {
+        console.error("❌ Error ensuring tables:", err);
+    }
+}
 
-        
-})
-
-createTables()
-
-
-//database setup ends here
-
+createTables();
 
 const app = express()
-
-
 
 app.set("view engine", "ejs")
 app.use(express.urlencoded({extended:false}))
 app.use(express.static("public"))
 app.use(cookieParser())
 
-
-app.use(function(req,res,next){
-    //make our markdown function available
-    res.locals.filterUserHTML = function(content){
+app.use(async function(req, res, next) {
+    // Make our markdown function available
+    res.locals.filterUserHTML = function(content) {
         return sanitizeHTML(marked.parse(content), {
             allowedTags: ["p", "br", "ul", "li", "ol", "strong", "bold", "i", "em", "h1", "h2", "h3", "h4", "h5", "h6"],
             allowedAttributes: {}
         })
     }
 
-
     res.locals.errors = []
 
-    //try to decode incoming cookie
-    try{
-        const decoded = jwt.verify(req.cookies.ourSimpleApp,process.env.JWTSECRET)
+    // Try to decode incoming cookie
+    try {
+        const decoded = jwt.verify(req.cookies.ourSimpleApp, process.env.JWTSECRET)
         req.user = decoded
-    } catch(err){
+    } catch(err) {
         req.user = false
     }
 
@@ -104,11 +101,13 @@ app.use(function(req,res,next){
     next()
 })
 
-app.get("/",(req,res) =>{
-    if(req.user){
-        const postsStatement = db.prepare("SELECT * FROM posts WHERE authorid = ? ORDER BY createdDate DESC")
-        const posts = postsStatement.all(req.user.userid)
-        return res.render("dashboard", {posts})
+app.get("/", async (req, res) => {
+    if(req.user) {
+        const posts = await db.execute({
+            sql: "SELECT * FROM posts WHERE authorid = ? ORDER BY createdDate DESC",
+            args: [req.user.userid]
+        })
+        return res.render("dashboard", {posts: posts.rows})
     }
     res.render("homepage")
 })
@@ -117,421 +116,391 @@ app.get("/login", (req, res) => {
     res.render("login")
 })
 
-app.get("/logout", (req,res) => {
+app.get("/logout", (req, res) => {
     res.clearCookie("ourSimpleApp")
     res.redirect("/")
 })
 
-app.get("/student-nonprofit", mustBeLoggedIn, (req,res) => {
-    const user = db.prepare("SELECT user_type FROM users WHERE id = ?")
-    .get(req.user.userid)
+app.get("/student-nonprofit", mustBeLoggedIn, async (req, res) => {
+    const user = await db.execute({
+        sql: "SELECT user_type FROM users WHERE id = ?",
+        args: [req.user.userid]
+    })
 
-    //check if profile exists
-    const profileExists = db.prepare(`
-        SELECT 1 FROM student_profiles
-        WHERE user_id = ?
-        `).get(req.user.userid)
+    const userType = user.rows[0]?.user_type
 
-    
-    //redirect logic
-    if(user.user_type == 'student'){
-        return profileExists
-            ? res.redirect('/interests') //alreadt completed profile
+    // Check if profile exists
+    const profileExists = await db.execute({
+        sql: "SELECT 1 FROM student_profiles WHERE user_id = ?",
+        args: [req.user.userid]
+    })
+
+    // Redirect logic
+    if(userType == 'student') {
+        return profileExists.rows.length > 0
+            ? res.redirect('/interests')
             : res.redirect('/student-profile')
     }
 
-    if(user.user_type === 'nonprofit'){
+    if(userType === 'nonprofit') {
         return res.redirect('/nonprofit-profile')
     }
 
     res.render("student-nonprofit")
 })
 
-app.get("/student-profile", mustBeLoggedIn, (req,res) =>{
-    const profile = db.prepare(`
-        SELECT * FROM student_profiles
-        WHERE user_id = ?
-        
-        `).get(req.user.userid);
+app.get("/student-profile", mustBeLoggedIn, async (req, res) => {
+    const profile = await db.execute({
+        sql: "SELECT * FROM student_profiles WHERE user_id = ?",
+        args: [req.user.userid]
+    })
 
-
-        if(profile && profile.interests.trim().length > 0){
-            return res.redirect('/student-homepage')
-        }
+    if(profile.rows[0] && profile.rows[0].interests && profile.rows[0].interests.trim().length > 0) {
+        return res.redirect('/student-homepage')
+    }
 
     res.render("student-profile")
-
 })
 
-app.post("/student-nonprofit", mustBeLoggedIn, (req,res)=>{
+app.post("/student-nonprofit", mustBeLoggedIn, async (req, res) => {
     const { userType } = req.body;
 
-    // Validate userType
     if (userType !== "student" && userType !== "nonprofit") {
         return res.render("student-nonprofit", { errors: ["Invalid user type."] });
     }
 
-    // Update user type in the database
-    db.prepare("UPDATE users SET user_type = ? WHERE id = ?")
-        .run(userType, req.user.userid);
+    await db.execute({
+        sql: "UPDATE users SET user_type = ? WHERE id = ?",
+        args: [userType, req.user.userid]
+    });
 
-    // Redirect based on user type
     if (userType === "student") {
         return res.redirect("/student-profile");
     } else if (userType === "nonprofit") {
         return res.redirect("/nonprofit-profile");
     }
-
 })
 
-app.get("/nonprofit-profile", mustBeLoggedIn, (req,res) =>{
-    const profile = db.prepare(`
-        SELECT * FROM nonprofit_profiles
-        WHERE user_id = ?
-        
-        `).get(req.user.userid);
+app.get("/nonprofit-profile", mustBeLoggedIn, async (req, res) => {
+    const profile = await db.execute({
+        sql: "SELECT * FROM nonprofit_profiles WHERE user_id = ?",
+        args: [req.user.userid]
+    })
 
-
-        if(profile){
-            return res.redirect('/nonprofit-homepage')
-        }
-
-    res.render("nonprofit-profile")
-
-})
-
-app.post("/nonprofit-profile", mustBeLoggedIn, (req,res) =>{
-    const existingProfile = db.prepare(`
-        SELECT 1 FROM nonprofit_profiles WHERE user_id = ?
-        `).get(req.user.userid)
-
-    if(existingProfile){
+    if(profile.rows.length > 0) {
         return res.redirect('/nonprofit-homepage')
     }
 
+    res.render("nonprofit-profile")
+})
 
-    db.prepare(`
-        INSERT INTO nonprofit_profiles (user_id, nonprofit_name, location, category, statement) VALUES(?, ?, ?, ?, ?)
-        `).run(
+app.post("/nonprofit-profile", mustBeLoggedIn, async (req, res) => {
+    const existingProfile = await db.execute({
+        sql: "SELECT 1 FROM nonprofit_profiles WHERE user_id = ?",
+        args: [req.user.userid]
+    })
+
+    if(existingProfile.rows.length > 0) {
+        return res.redirect('/nonprofit-homepage')
+    }
+
+    await db.execute({
+        sql: "INSERT INTO nonprofit_profiles (user_id, nonprofit_name, location, category, statement) VALUES(?, ?, ?, ?, ?)",
+        args: [
             req.user.userid,
             req.body.nonprofitName,
             req.body.location,
             req.body.category,
             req.body.statement
+        ]
+    })
 
-        );
-
-        res.redirect('/nonprofit-homepage');
+    res.redirect('/nonprofit-homepage')
 })
 
-app.get("/nonprofit-homepage", mustBeLoggedIn, (req,res) =>{
+app.get("/nonprofit-homepage", mustBeLoggedIn, (req, res) => {
     res.render("nonprofit-homepage")
 })
 
-
-
-
-
-
-app.post("/login", (req,res) => {
+app.post("/login", async (req, res) => {
     let errors = []
 
     if(typeof req.body.username !== "string") req.body.username = ""
     if(typeof req.body.password !== "string") req.body.password = ""
 
-    if(req.body.username.trim() == "") errors = ["Invalid usernmae/password"]
-    if(req.body.password == "") errors = ["Invalid usernmae/password"]
+    if(req.body.username.trim() == "") errors = ["Invalid username/password"]
+    if(req.body.password == "") errors = ["Invalid username/password"]
 
-    if(errors.length){
+    if(errors.length) {
         return res.render("login", {errors})
     }
 
-    const userInQuestionStatement = db.prepare("SELECT * FROM users  WHERE USERNAME = ?")
-    const userInQuestion = userInQuestionStatement.get(req.body.username)
+    const userInQuestion = await db.execute({
+        sql: "SELECT * FROM users WHERE username = ?",
+        args: [req.body.username]
+    })
 
-    if(!userInQuestion){
+    if(userInQuestion.rows.length === 0) {
         errors = ["Invalid username/password."]
         return res.render("login", {errors})
     }
 
-    const matchOrNot = bcrypt.compareSync(req.body.password, userInQuestion.password)
-    if(!matchOrNot){
+    const user = userInQuestion.rows[0]
+    const matchOrNot = bcrypt.compareSync(req.body.password, user.password)
+    if(!matchOrNot) {
         errors = ["Invalid username/password."]
         return res.render("login", {errors})
     }
 
-    const ourTokenValue = jwt.sign({exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, userid: userInQuestion.id, username: userInQuestion.username},process.env.JWTSECRET)
+    const ourTokenValue = jwt.sign({
+        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, 
+        userid: user.id, 
+        username: user.username
+    }, process.env.JWTSECRET)
 
+    res.cookie("ourSimpleApp", ourTokenValue, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        maxAge: 1000 * 60 * 60 * 24
+    })
 
-res.cookie("ourSimpleApp",ourTokenValue,{
-    httpOnly: true,
-    secure: true,
-    sameSite: "strict",
-    maxAge: 1000 * 60 * 60 * 24
+    const profile = await db.execute({
+        sql: "SELECT interests FROM student_profiles WHERE user_id = ?",
+        args: [user.id]
+    })
+
+    if (profile.rows[0] && profile.rows[0].interests && profile.rows[0].interests.trim().length > 0) {
+        return res.redirect("/student-homepage")
+    }
+
+    res.redirect("/student-nonprofit")
 })
 
-const profile = db.prepare(`
-    SELECT interests FROM student_profiles WHERE user_id = ?
-`).get(userInQuestion.id);
-
-if (profile && profile.interests.trim().length > 0) {
-    return res.redirect("/student-homepage");
-}
-
-res.redirect("/student-nonprofit")
-
-})
-
-
-
-
-
-
-
-
-function mustBeLoggedIn(req,res,next){
-    if(req.user){
+function mustBeLoggedIn(req, res, next) {
+    if(req.user) {
         return next()
     }
     return res.redirect("/")
 }
 
-
-
-app.get("/create-post", mustBeLoggedIn,(req,res) =>{
+app.get("/create-post", mustBeLoggedIn, (req, res) => {
     res.render("create-post")
 })
 
-
 app.get("/interests", mustBeLoggedIn, (req, res) => {
-    res.render("interests"); 
-});
+    res.render("interests")
+})
 
-app.get("/student-homepage", mustBeLoggedIn, (req,res)=>{
+app.get("/student-homepage", mustBeLoggedIn, (req, res) => {
     res.render("student-homepage")
 })
 
-app.post("/interests", mustBeLoggedIn, (req, res) => {
-    let selectedInterests = req.body.interests; // Array of selected interests
+app.post("/interests", mustBeLoggedIn, async (req, res) => {
+    let selectedInterests = req.body.interests
 
     if (!Array.isArray(selectedInterests)) {
-        selectedInterests = [selectedInterests]; // Convert to array if only one checkbox is selected
+        selectedInterests = [selectedInterests]
     }
 
+    const interestsString = selectedInterests.join(", ")
     
-    // Convert the array into a comma-separated string
-    const interestsString = selectedInterests.join(", ");
-    
-    // Update the student's profile in the database
-    db.prepare(`
-        UPDATE student_profiles 
-        SET interests = ? 
-        WHERE user_id = ?
-    `).run(interestsString, req.user.userid);
+    await db.execute({
+        sql: "UPDATE student_profiles SET interests = ? WHERE user_id = ?",
+        args: [interestsString, req.user.userid]
+    })
 
-    res.redirect("/student-homepage"); // Redirect after saving
-});
+    res.redirect("/student-homepage")
+})
 
-function sharedPostValidation(req){
+function sharedPostValidation(req) {
     const errors = []
 
     if(typeof req.body.title !== "string") req.body.title = ""
     if(typeof req.body.body !== "string") req.body.body = ""
 
-    //trim - sanitize or strip out html
-    req.body.title = sanitizeHTML(req.body.title.trim(),{allowedTags: [], allowedAttributes: {}})
-    req.body.body = sanitizeHTML(req.body.body.trim(),{allowedTags: [], allowedAttributes: {}})
+    req.body.title = sanitizeHTML(req.body.title.trim(), {allowedTags: [], allowedAttributes: {}})
+    req.body.body = sanitizeHTML(req.body.body.trim(), {allowedTags: [], allowedAttributes: {}})
 
     if(!req.body.title) errors.push("You must provide a title.")
     if(!req.body.body) errors.push("You must provide content.")
 
-
-
     return errors
 }
 
-app.get("/edit-post/:id", mustBeLoggedIn, (req, res) => {
-    // try to look up the post in question
-    const statement = db.prepare("SELECT * FROM posts WHERE id = ?")
-    const post = statement.get(req.params.id)
-  
-    if (!post) {
-      return res.redirect("/")
+app.get("/edit-post/:id", mustBeLoggedIn, async (req, res) => {
+    const post = await db.execute({
+        sql: "SELECT * FROM posts WHERE id = ?",
+        args: [req.params.id]
+    })
+
+    if (post.rows.length === 0) {
+        return res.redirect("/")
     }
-  
-    // if you're not the author, redirect to homepage
-    if (post.authorid !== req.user.userid) {
-      return res.redirect("/")
+
+    if (post.rows[0].authorid !== req.user.userid) {
+        return res.redirect("/")
     }
-  
 
-    // otherwise, render the edit post template
-    res.render("edit-post", { post })
-  })
+    res.render("edit-post", { post: post.rows[0] })
+})
 
+app.post('/student-profile', mustBeLoggedIn, async (req, res) => {
+    const existingProfile = await db.execute({
+        sql: "SELECT 1 FROM student_profiles WHERE user_id = ?",
+        args: [req.user.userid]
+    })
 
-
-app.post('/student-profile',mustBeLoggedIn, (req,res) => {
-    const existingProfile = db.prepare(`
-        SELECT 1 FROM student_profiles WHERE user_id = ?
-    `).get(req.user.userid);
-
-    if (existingProfile) {
-        return res.redirect('/interests');
+    if (existingProfile.rows.length > 0) {
+        return res.redirect('/interests')
     }
     
-    db.prepare(`
-        INSERT INTO student_profiles (user_id, full_name, age, school, bio) VALUES(?, ?, ?, ?, ?)
-        `).run(
+    await db.execute({
+        sql: "INSERT INTO student_profiles (user_id, full_name, age, school, bio) VALUES(?, ?, ?, ?, ?)",
+        args: [
             req.user.userid,
             req.body.fullName,
             req.body.age,
             req.body.school,
             req.body.bio
+        ]
+    })
 
-        );
-
-        res.redirect('/interests');
-
-
+    res.redirect('/interests')
 })
 
+app.post("/edit-post/:id", mustBeLoggedIn, async (req, res) => {
+    const post = await db.execute({
+        sql: "SELECT * FROM posts WHERE id = ?",
+        args: [req.params.id]
+    })
 
-
-
-
-
-  
-  app.post("/edit-post/:id", mustBeLoggedIn, (req, res) => {
-    // try to look up the post in question
-    const statement = db.prepare("SELECT * FROM posts WHERE id = ?")
-    const post = statement.get(req.params.id)
-  
-    if (!post) {
-      return res.redirect("/")
+    if (post.rows.length === 0) {
+        return res.redirect("/")
     }
-  
-    // if you're not the author, redirect to homepage
-    if (post.authorid !== req.user.userid) {
-      return res.redirect("/")
+
+    if (post.rows[0].authorid !== req.user.userid) {
+        return res.redirect("/")
     }
-  
+
     const errors = sharedPostValidation(req)
-  
+
     if (errors.length) {
-      return res.render("edit-post", { errors })
+        return res.render("edit-post", { errors })
     }
-  
-    const updateStatement = db.prepare("UPDATE posts SET title = ?, body = ? WHERE id = ?")
-    updateStatement.run(req.body.title, req.body.body, req.params.id)
-  
+
+    await db.execute({
+        sql: "UPDATE posts SET title = ?, body = ? WHERE id = ?",
+        args: [req.body.title, req.body.body, req.params.id]
+    })
+
     res.redirect(`/post/${req.params.id}`)
-  })
+})
 
-app.post("/delete-post/:id", mustBeLoggedIn, (req,res) =>{
-    //try to look up the post in question
-    const statement = db.prepare("SELECT * FROM posts WHERE id = ?")
-    const post = statement.get(req.params.id)
+app.post("/delete-post/:id", mustBeLoggedIn, async (req, res) => {
+    const post = await db.execute({
+        sql: "SELECT * FROM posts WHERE id = ?",
+        args: [req.params.id]
+    })
 
-    if(!post){
+    if(post.rows.length === 0) {
         return res.redirect("/")
     }
 
-    //if you're not the author, redirect to homepage
-    if(post.authorid !== req.user.userid){
+    if(post.rows[0].authorid !== req.user.userid) {
         return res.redirect("/")
     }
 
-    const deleteStatement = db.prepare("DELETE FROM posts WHERE id = ?")
-    deleteStatement.run(req.params.id)
+    await db.execute({
+        sql: "DELETE FROM posts WHERE id = ?",
+        args: [req.params.id]
+    })
 
     res.redirect("/")
 })
 
-app.get("/post/:id", (req,res) => {
-    const statement = db.prepare("SELECT posts.*, users.username FROM posts INNER JOIN users ON posts.authorid = users.id WHERE posts.id = ?")
-    const post = statement.get(req.params.id)
+app.get("/post/:id", async (req, res) => {
+    const post = await db.execute({
+        sql: "SELECT posts.*, users.username FROM posts INNER JOIN users ON posts.authorid = users.id WHERE posts.id = ?",
+        args: [req.params.id]
+    })
 
-    if(!post){
+    if(post.rows.length === 0) {
         return res.redirect("/")
     }
 
-    const isAuthor = post.authorid === req.user.userid
+    const isAuthor = req.user && post.rows[0].authorid === req.user.userid
 
-
-    res.render("single-post", {post, isAuthor})
+    res.render("single-post", {post: post.rows[0], isAuthor})
 })
 
-
-app.post("/create-post",mustBeLoggedIn, (req,res)=>{
+app.post("/create-post", mustBeLoggedIn, async (req, res) => {
     const errors = sharedPostValidation(req)
 
-    if(errors.length){
+    if(errors.length) {
         return res.render("create-post", {errors})
     }
 
-    //save into database
-    const ourStatement = db.prepare("INSERT INTO posts (title,body,authorid,createdDate) VALUES (?,?,?,?)")
-    const result = ourStatement.run(req.body.title, req.body.body, req.user.userid,new Date().toISOString())
+    const result = await db.execute({
+        sql: "INSERT INTO posts (title, body, authorid, createdDate) VALUES (?, ?, ?, ?)",
+        args: [req.body.title, req.body.body, req.user.userid, new Date().toISOString()]
+    })
 
-    const getPostStatement = db.prepare("SELECT * FROM posts WHERE ROWID = ?")
-    const realPost = getPostStatement.get(result.lastInsertRowid)
+    const postId = result.lastInsertRowid
 
-    res.redirect(`/post/${realPost.id}`)
+    res.redirect(`/post/${postId}`)
 })
 
-
-app.post("/register", (req,res) => {
+app.post("/register", async (req, res) => {
     const errors = []
 
-if(typeof req.body.username !== "string") req.body.username = ""
-if(typeof req.body.password !== "string") req.body.password = ""
+    if(typeof req.body.username !== "string") req.body.username = ""
+    if(typeof req.body.password !== "string") req.body.password = ""
 
-req.body.username = req.body.username.trim()
+    req.body.username = req.body.username.trim()
 
-if(!req.body.username) errors.push("You must provied a username.")
-if(req.body.username && req.body.username.length < 3) errors.push("Username must be at least 3 characters")
-if(req.body.username && req.body.username.length > 10) errors.push("Username cannot exceed 10 characters")
-if(req.body.username && !req.body.username.match(/^[a-zA-Z0-9]+$/)) errors.push("Username can only contain letters and numbers")
+    if(!req.body.username) errors.push("You must provide a username.")
+    if(req.body.username && req.body.username.length < 3) errors.push("Username must be at least 3 characters")
+    if(req.body.username && req.body.username.length > 10) errors.push("Username cannot exceed 10 characters")
+    if(req.body.username && !req.body.username.match(/^[a-zA-Z0-9]+$/)) errors.push("Username can only contain letters and numbers")
 
-//check if usernmae exists already
-const usernameStatement = db.prepare("SELECT * FROM users WHERE username = ?")
-const usernameCheck = usernameStatement.get(req.body.username)  
+    const usernameCheck = await db.execute({
+        sql: "SELECT * FROM users WHERE username = ?",
+        args: [req.body.username]
+    })
 
-if(usernameCheck) errors.push("That username is already taken.")
+    if(usernameCheck.rows.length > 0) errors.push("That username is already taken.")
 
-if(!req.body.password) errors.push("You must provied a password.")
-if(req.body.password && req.body.password.length < 12) errors.push("Password must be at least 12 characters")
-if(req.body.password && req.body.password.length > 70) errors.push("Password cannot exceed 70 characters")
+    if(!req.body.password) errors.push("You must provide a password.")
+    if(req.body.password && req.body.password.length < 12) errors.push("Password must be at least 12 characters")
+    if(req.body.password && req.body.password.length > 70) errors.push("Password cannot exceed 70 characters")
 
-if(errors.length){
-    return res.render("homepage", {errors})
-} 
+    if(errors.length) {
+        return res.render("homepage", {errors})
+    }
 
-//save the new user into a database
-const salt = bcrypt.genSaltSync(10)
-req.body.password = bcrypt.hashSync(req.body.password, salt)
+    const salt = bcrypt.genSaltSync(10)
+    const hashedPassword = bcrypt.hashSync(req.body.password, salt)
 
-const ourStatement = db.prepare("INSERT INTO users (username, password) VALUES (?,?)")
-const result = ourStatement.run(req.body.username, req.body.password)
+    const result = await db.execute({
+        sql: "INSERT INTO users (username, password) VALUES (?, ?)",
+        args: [req.body.username, hashedPassword]
+    })
 
-const lookupStatement = db.prepare("SELECT * FROM users WHERE ROWID = ?")
-const ourUser = lookupStatement.get(result.lastInsertRowid)
+    const ourTokenValue = jwt.sign({
+        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
+        userid: result.lastInsertRowid.toString(),
+        username: req.body.username
+    }, process.env.JWTSECRET)
 
-//log the user in by giving them a cookie
-const ourTokenValue = jwt.sign({exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, userid: ourUser.id, username: ourUser.username},process.env.JWTSECRET)
+    res.cookie("ourSimpleApp", ourTokenValue, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        maxAge: 1000 * 60 * 60 * 24
+    })
 
-
-res.cookie("ourSimpleApp",ourTokenValue,{
-    httpOnly: true,
-    secure: true,
-    sameSite: "strict",
-    maxAge: 1000 * 60 * 60 * 24
-})
-
-res.redirect("/student-nonprofit")
+    res.redirect("/student-nonprofit")
 })
 
 app.listen(5000)
-
-
