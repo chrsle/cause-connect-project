@@ -218,8 +218,16 @@ app.post("/nonprofit-profile", mustBeLoggedIn, async (req, res) => {
     res.redirect('/nonprofit-homepage')
 })
 
-app.get("/nonprofit-homepage", mustBeLoggedIn, (req, res) => {
-    res.render("nonprofit-homepage")
+app.get("/nonprofit-homepage", mustBeLoggedIn, async(req, res) => {
+    const profile = await db.execute({
+        sql: "SELECT nonprofit_name FROM nonprofit_profiles WHERE user_id = ?",
+        args: [req.user.userid]
+    })
+
+    const nonprofitName = profile.rows[0]?.nonprofit_name
+
+
+    res.render("nonprofit-homepage", {nonprofitName})
 })
 
 app.post("/login", async (req, res) => {
@@ -292,8 +300,28 @@ app.get("/interests", mustBeLoggedIn, (req, res) => {
     res.render("interests")
 })
 
-app.get("/student-homepage", mustBeLoggedIn, (req, res) => {
-    res.render("student-homepage")
+app.get("/student-homepage", mustBeLoggedIn, async(req, res) => {
+    const profile = await db.execute({
+        sql: "SELECT full_name FROM student_profiles WHERE user_id = ?",
+        args: [req.user.userid]
+
+    })
+
+    const fullName = profile.rows[0]?.full_name || req.user.username
+
+
+    res.render("student-homepage" ,{fullName})
+})
+
+app.get("/student-profile-button", mustBeLoggedIn, async(req,res) =>{
+    const profile = await db.execute({
+        sql: "SELECT full_name FROM student_profiles WHERE  user_id = ?",
+        args: [req.user.userid]
+    })
+
+    const fullName = profile.rows[0]?. full_name || req.user.username
+
+    res.render("student-profile-button", {fullName})
 })
 
 app.post("/interests", mustBeLoggedIn, async (req, res) => {
