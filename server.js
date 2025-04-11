@@ -292,8 +292,28 @@ app.get("/interests", mustBeLoggedIn, (req, res) => {
     res.render("interests")
 })
 
-app.get("/student-homepage", mustBeLoggedIn, (req, res) => {
-    res.render("student-homepage")
+app.get("/student-homepage", mustBeLoggedIn, async(req, res) => {
+    const profile = await db.execute({
+        sql: "SELECT full_name FROM student_profiles WHERE user_id = ?",
+        args: [req.user.userid]
+
+    })
+
+    const fullName = profile.rows[0]?.full_name || req.user.username
+
+
+    res.render("student-homepage" ,{fullName})
+})
+
+app.get("/student-profile-button", mustBeLoggedIn, async(req,res) =>{
+    const profile = await db.execute({
+        sql: "SELECT full_name FROM student_profiles WHERE  user_id = ?",
+        args: [req.user.userid]
+    })
+
+    const fullName = profile.rows[0]?. full_name || req.user.username
+
+    res.render("student-profile-button", {fullName})
 })
 
 app.post("/interests", mustBeLoggedIn, async (req, res) => {
