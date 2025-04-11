@@ -218,8 +218,16 @@ app.post("/nonprofit-profile", mustBeLoggedIn, async (req, res) => {
     res.redirect('/nonprofit-homepage')
 })
 
-app.get("/nonprofit-homepage", mustBeLoggedIn, (req, res) => {
-    res.render("nonprofit-homepage")
+app.get("/nonprofit-homepage", mustBeLoggedIn, async(req, res) => {
+    const profile = await db.execute({
+        sql: "SELECT nonprofit_name FROM nonprofit_profiles WHERE user_id = ?",
+        args: [req.user.userid]
+    })
+
+    const nonprofitName = profile.rows[0]?.nonprofit_name
+
+
+    res.render("nonprofit-homepage", {nonprofitName})
 })
 
 app.post("/login", async (req, res) => {
