@@ -1,25 +1,18 @@
 {
-  "name": "backend_project_better",
-  "version": "1.0.0",
-  "main": "index.js",
+  "name": "Scrim-s0s62476o6",
+  "description": "https://scrimba.com/s0s62476o6/head",
   "scripts": {
-    "dev": "nodemon server",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "bcrypt": "^5.1.1",
-    "better-sqlite3": "^11.9.1",
-    "cookie-parser": "^1.4.7",
-    "dotenv": "^16.4.7",
-    "ejs": "^3.1.10",
-    "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.2",
-    "marked": "^15.0.7",
-    "nodemon": "^3.1.9",
-    "sanitize-html": "^2.15.0"
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "*"
   }
 }
