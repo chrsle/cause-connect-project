@@ -42,7 +42,6 @@ const LandingPage = () => {
         <div className="landing-page-explore">
           <h2 className="header-explore">Explore New Causes</h2>
 
-          {/* Add a search bar */}
           <div className="search-bar-container">
             <input
               type="text"
@@ -53,7 +52,7 @@ const LandingPage = () => {
             />
           </div>
 
-          {/* Pass the filtered events to EventCardGrid */}
+         
           <EventCardGrid events={filteredEvents} />
         </div>
       </div>

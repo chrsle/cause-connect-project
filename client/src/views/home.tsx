@@ -23,6 +23,8 @@ const Home = () => {
       if (response.success) {
         console.log("Login successful", response.data);
         // TODO: Redirect to dashboard
+
+
       } else {
         console.log("Login failed", response.error);
         setError("Login failed. Please try again.");
@@ -71,7 +73,7 @@ const Home = () => {
             </form>
           </div>
         ) : (
-          <Registration /> // 👈 renders your new component
+          <Registration /> 
         )}
       </div>
     </div>
