@@ -58,6 +58,7 @@ async function createTables() {
                 category TEXT,
                 statement TEXT,
                 FOREIGN KEY (user_id) REFERENCES users(id)
+                events TEXT 
             )
         `);
 
@@ -531,4 +532,4 @@ app.post("/register", async (req, res) => {
     res.redirect("/student-nonprofit")
 })
 
-app.listen(5001)
+app.listen(3001)

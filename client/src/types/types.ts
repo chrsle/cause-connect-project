@@ -11,7 +11,7 @@ export type Student = {
     age: number;
     school: string;
     bio: string;
-    interests: string[];
+    interests: string;
 }
 
 export type Orgnization = {
@@ -29,4 +29,10 @@ export type Event = {
     body: string;
     createdDate: string;
     author_id: number;
+    startDate: string;
+    startTime: string;
+    endDate: string;
+    endTime: string;
+    location: string;
+    cause:string
 }
