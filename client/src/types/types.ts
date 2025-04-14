@@ -35,4 +35,5 @@ export type Event = {
     endTime: string;
     location: string;
     cause:string
+    volunteers: string;
 }
