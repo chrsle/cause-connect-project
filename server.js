@@ -331,10 +331,6 @@ function mustBeLoggedIn(req, res, next) {
     return res.redirect("/")
 }
 
-app.get("/create-post", mustBeLoggedIn, (req, res) => {
-    res.render("create-post")
-})
-
 app.get("/interests", mustBeLoggedIn, (req, res) => {
     res.render("interests")
 })
