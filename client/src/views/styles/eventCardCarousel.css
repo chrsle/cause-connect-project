@@ -1,0 +1,44 @@
+.carousel-container {
+    display: flex;
+    align-items: center;
+    width: 100vw; /* Full width of viewport */
+    position: relative;
+    overflow: hidden;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  
+  .carousel-btn {
+    background-color: #1A83F8;
+    color: white;
+    border: none;
+    padding: 10px 14px;
+    font-size: 1.5rem;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 2;
+    transition: background-color 0.3s ease;
+  }
+  
+  .carousel-btn:disabled {
+    background-color: #1A83F8;
+    cursor: not-allowed;
+  }
+  
+  .carousel-content {
+    overflow: hidden;
+    width: 100%;
+  }
+  
+  .carousel-track {
+    display: flex;
+    transition: transform 0.5s ease-in-out;
+    width: 100%;
+  }
+  
+  .carousel-item {
+    flex: 0 0 33.3333%; /* One-third of the container */
+    box-sizing: border-box;
+    padding: 0 10px;
+  }
+  
