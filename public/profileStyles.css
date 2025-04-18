@@ -52,7 +52,6 @@ textarea{
 }
 .menu{
     display: grid;
-    grid-template-rows: 13% 18% 13% 18% 13% 18% 13%;
 }
 
 .personalBioGrid{

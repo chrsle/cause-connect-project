@@ -26,17 +26,6 @@ async function createTables() {
         `);
 
         await db.execute(`
-            CREATE TABLE IF NOT EXISTS posts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                body TEXT NOT NULL,
-                createdDate TEXT,
-                authorid INTEGER,
-                FOREIGN KEY (authorid) REFERENCES users (id)
-            )
-        `);
-
-        await db.execute(`
             CREATE TABLE IF NOT EXISTS student_profiles(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER UNIQUE,
@@ -58,6 +47,31 @@ async function createTables() {
                 category TEXT,
                 statement TEXT,
                 FOREIGN KEY (user_id) REFERENCES users(id)
+            )   
+        `);
+
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS opportunities(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                nonprofit_name TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                date TEXT NOT NULL,
+                time TEXT NOT NULL,
+                location TEXT NOT NULL
+            )
+        `);
+
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS volunteer_signups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                opportunity_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                signup_date TEXT NOT NULL,
+                FOREIGN KEY (opportunity_id) REFERENCES opportunities(id),
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                UNIQUE(opportunity_id, user_id)  -- Prevent duplicate signups
             )
         `);
 
@@ -101,16 +115,7 @@ app.use(async function(req, res, next) {
     next()
 })
 
-app.get("/", async (req, res) => {
-    if(req.user) {
-        const posts = await db.execute({
-            sql: "SELECT * FROM posts WHERE authorid = ? ORDER BY createdDate DESC",
-            args: [req.user.userid]
-        })
-        return res.render("dashboard", {posts: posts.rows})
-    }
-    res.render("homepage")
-})
+
 
 app.get("/login", (req, res) => {
     res.render("login")
@@ -233,6 +238,7 @@ app.get("/nonprofit-homepage", mustBeLoggedIn, async(req, res) => {
 app.post("/login", async (req, res) => {
     let errors = []
 
+    // Input validation
     if(typeof req.body.username !== "string") req.body.username = ""
     if(typeof req.body.password !== "string") req.body.password = ""
 
@@ -243,6 +249,7 @@ app.post("/login", async (req, res) => {
         return res.render("login", {errors})
     }
 
+    // Check user exists
     const userInQuestion = await db.execute({
         sql: "SELECT * FROM users WHERE username = ?",
         args: [req.body.username]
@@ -260,6 +267,7 @@ app.post("/login", async (req, res) => {
         return res.render("login", {errors})
     }
 
+    // Create JWT token
     const ourTokenValue = jwt.sign({
         exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, 
         userid: user.id, 
@@ -273,16 +281,47 @@ app.post("/login", async (req, res) => {
         maxAge: 1000 * 60 * 60 * 24
     })
 
-    const profile = await db.execute({
-        sql: "SELECT interests FROM student_profiles WHERE user_id = ?",
+    // Get user type
+    const userTypeResult = await db.execute({
+        sql: "SELECT user_type FROM users WHERE id = ?",
         args: [user.id]
     })
+    const userType = userTypeResult.rows[0]?.user_type
 
-    if (profile.rows[0] && profile.rows[0].interests && profile.rows[0].interests.trim().length > 0) {
-        return res.redirect("/student-homepage")
+    // Handle nonprofit users
+    if (userType === 'nonprofit') {
+        const nonprofitProfile = await db.execute({
+            sql: "SELECT 1 FROM nonprofit_profiles WHERE user_id = ?",
+            args: [user.id]
+        })
+        return nonprofitProfile.rows.length > 0 
+            ? res.redirect('/nonprofit-homepage')
+            : res.redirect('/nonprofit-profile')
     }
 
-    res.redirect("/student-nonprofit")
+    // Handle student users - FIXED SECTION
+    if (userType === 'student') {
+        const studentProfile = await db.execute({
+            sql: "SELECT id, interests FROM student_profiles WHERE user_id = ?",
+            args: [user.id]
+        })
+        
+        // No profile exists - go to profile creation
+        if (studentProfile.rows.length === 0) {
+            return res.redirect('/student-profile')
+        }
+        
+        // Check if interests exist
+        if (!studentProfile.rows[0].interests || studentProfile.rows[0].interests.trim() === '') {
+            return res.redirect('/interests')
+        }
+        
+        // If profile exists with interests, go to homepage
+        return res.redirect('/student-homepage')
+    }
+
+    // New users without type selection
+    return res.redirect('/student-nonprofit')
 })
 
 function mustBeLoggedIn(req, res, next) {
@@ -356,33 +395,27 @@ function sharedPostValidation(req) {
     return errors
 }
 
-app.get("/edit-post/:id", mustBeLoggedIn, async (req, res) => {
-    const post = await db.execute({
-        sql: "SELECT * FROM posts WHERE id = ?",
-        args: [req.params.id]
-    })
 
-    if (post.rows.length === 0) {
-        return res.redirect("/")
-    }
-
-    if (post.rows[0].authorid !== req.user.userid) {
-        return res.redirect("/")
-    }
-
-    res.render("edit-post", { post: post.rows[0] })
-})
 
 app.post('/student-profile', mustBeLoggedIn, async (req, res) => {
     const existingProfile = await db.execute({
-        sql: "SELECT 1 FROM student_profiles WHERE user_id = ?",
+        sql: "SELECT interests FROM student_profiles WHERE user_id = ?",
         args: [req.user.userid]
-    })
+    });
 
-    if (existingProfile.rows.length > 0) {
-        return res.redirect('/interests')
+    // If profile exists and has interests, go to homepage
+    if (existingProfile.rows.length > 0 && 
+        existingProfile.rows[0].interests && 
+        existingProfile.rows[0].interests.trim().length > 0) {
+        return res.redirect('/student-homepage');
     }
     
+    // If profile exists but no interests, go to interests
+    if (existingProfile.rows.length > 0) {
+        return res.redirect('/interests');
+    }
+
+    // Create new profile
     await db.execute({
         sql: "INSERT INTO student_profiles (user_id, full_name, age, school, bio) VALUES(?, ?, ?, ?, ?)",
         args: [
@@ -392,92 +425,172 @@ app.post('/student-profile', mustBeLoggedIn, async (req, res) => {
             req.body.school,
             req.body.bio
         ]
-    })
+    });
 
-    res.redirect('/interests')
+    // New profiles go to interests
+    res.redirect('/interests');
+});
+
+app.get("/create-opportunity", mustBeLoggedIn,  async(req,res) =>{
+    res.render("create-opportunity")
+
+
 })
 
-app.post("/edit-post/:id", mustBeLoggedIn, async (req, res) => {
-    const post = await db.execute({
-        sql: "SELECT * FROM posts WHERE id = ?",
-        args: [req.params.id]
-    })
+app.post('/create-opportunity', mustBeLoggedIn, async (req, res) => {
+    try {
+        // Extract and validate fields
+        const { title, description, date, time, location } = req.body;
+        const userId = req.user.userid;
 
-    if (post.rows.length === 0) {
-        return res.redirect("/")
+        // Basic validation
+        if (!title || !description || !date || !time || !location) {
+            return res.status(400).json({ error: 'All fields are required.' });
+        }
+
+        // Get nonprofit name
+        const nonprofitResult = await db.execute({
+            sql: "SELECT nonprofit_name FROM nonprofit_profiles WHERE user_id = ?",
+            args: [userId]
+        });
+
+        if (nonprofitResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Nonprofit profile not found.' });
+        }
+
+        const nonprofitName = nonprofitResult.rows[0].nonprofit_name;
+
+        // Ensure all values are strings (convert if necessary)
+        const insertValues = {
+            userId: String(userId),
+            nonprofitName: String(nonprofitName),
+            title: String(title),
+            description: String(description),
+            date: String(date),
+            time: String(time),
+            location: String(location)
+        };
+
+        // Insert the opportunity
+        await db.execute({
+            sql: `INSERT INTO opportunities 
+                 (user_id, nonprofit_name, title, description, date, time, location)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            args: [
+                insertValues.userId,
+                insertValues.nonprofitName,
+                insertValues.title,
+                insertValues.description,
+                insertValues.date,
+                insertValues.time,
+                insertValues.location
+            ]
+        });
+
+        res.redirect('/nonprofit-homepage');
+    } catch (error) {
+        console.error('Error creating opportunity:', error);
+        res.status(500).json({ error: 'Internal server error.' });
     }
+});
 
-    if (post.rows[0].authorid !== req.user.userid) {
-        return res.redirect("/")
+
+app.get('/view-opportunity', mustBeLoggedIn, async (req, res) => {
+    try {
+        // Get all active opportunities (no filters)
+        const opportunities = await db.execute({
+            sql: `SELECT o.*, np.nonprofit_name 
+                 FROM opportunities o
+                 JOIN nonprofit_profiles np ON o.user_id = np.user_id
+                 ORDER BY o.date DESC`
+        });
+
+        res.render('view-opportunity', {
+            opportunities: opportunities.rows,
+            user: req.user
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send("Server error");
     }
+});
 
-    const errors = sharedPostValidation(req)
+app.get('/opportunity/:id', mustBeLoggedIn, async (req, res) => {
+    try {
+        // Get the opportunity details
+        const opportunity = await db.execute({
+            sql: `SELECT o.*, np.nonprofit_name, np.location AS org_location, np.category, np.statement
+                 FROM opportunities o
+                 JOIN nonprofit_profiles np ON o.user_id = np.user_id
+                 WHERE o.id = ?`,
+            args: [req.params.id]
+        });
 
-    if (errors.length) {
-        return res.render("edit-post", { errors })
+        if (opportunity.rows.length === 0) {
+            return res.status(404).send("Opportunity not found");
+        }
+
+        // Check if user is already signed up
+        const isSignedUp = await db.execute({
+            sql: "SELECT 1 FROM volunteer_signups WHERE opportunity_id = ? AND user_id = ?",
+            args: [req.params.id, req.user.userid]
+        });
+
+        // Get the message from query params
+        const message = req.query.message;
+
+        res.render("opportunity", {
+            opportunity: opportunity.rows[0],
+            isSignedUp: isSignedUp.rows.length > 0,
+            message: message
+        });
+    } catch (error) {
+        console.error('Error fetching opportunity:', error);
+        res.status(500).send("Server error");
     }
+});
 
-    await db.execute({
-        sql: "UPDATE posts SET title = ?, body = ? WHERE id = ?",
-        args: [req.body.title, req.body.body, req.params.id]
-    })
+app.post('/signup-opportunity/:id', mustBeLoggedIn, async (req, res) => {
+    try {
+        const opportunityId = req.params.id;
+        const userId = req.user.userid;
 
-    res.redirect(`/post/${req.params.id}`)
-})
+        // Check if opportunity exists
+        const opportunity = await db.execute({
+            sql: "SELECT 1 FROM opportunities WHERE id = ?",
+            args: [opportunityId]
+        });
 
-app.post("/delete-post/:id", mustBeLoggedIn, async (req, res) => {
-    const post = await db.execute({
-        sql: "SELECT * FROM posts WHERE id = ?",
-        args: [req.params.id]
-    })
+        if (opportunity.rows.length === 0) {
+            return res.status(404).send("Opportunity not found");
+        }
 
-    if(post.rows.length === 0) {
-        return res.redirect("/")
+        // Check if already signed up
+        const existingSignup = await db.execute({
+            sql: "SELECT 1 FROM volunteer_signups WHERE opportunity_id = ? AND user_id = ?",
+            args: [opportunityId, userId]
+        });
+
+        if (existingSignup.rows.length > 0) {
+            return res.redirect(`/opportunity/${opportunityId}?message=already_signed_up`);
+        }
+
+        // Create new signup
+        await db.execute({
+            sql: "INSERT INTO volunteer_signups (opportunity_id, user_id, signup_date) VALUES (?, ?, ?)",
+            args: [opportunityId, userId, new Date().toISOString()]
+        });
+
+        res.redirect(`/opportunity/${opportunityId}?message=signup_success`);
+    } catch (error) {
+        console.error('Error signing up:', error);
+        res.status(500).send("Server error");
     }
+});
 
-    if(post.rows[0].authorid !== req.user.userid) {
-        return res.redirect("/")
-    }
 
-    await db.execute({
-        sql: "DELETE FROM posts WHERE id = ?",
-        args: [req.params.id]
-    })
 
-    res.redirect("/")
-})
 
-app.get("/post/:id", async (req, res) => {
-    const post = await db.execute({
-        sql: "SELECT posts.*, users.username FROM posts INNER JOIN users ON posts.authorid = users.id WHERE posts.id = ?",
-        args: [req.params.id]
-    })
-
-    if(post.rows.length === 0) {
-        return res.redirect("/")
-    }
-
-    const isAuthor = req.user && post.rows[0].authorid === req.user.userid
-
-    res.render("single-post", {post: post.rows[0], isAuthor})
-})
-
-app.post("/create-post", mustBeLoggedIn, async (req, res) => {
-    const errors = sharedPostValidation(req)
-
-    if(errors.length) {
-        return res.render("create-post", {errors})
-    }
-
-    const result = await db.execute({
-        sql: "INSERT INTO posts (title, body, authorid, createdDate) VALUES (?, ?, ?, ?)",
-        args: [req.body.title, req.body.body, req.user.userid, new Date().toISOString()]
-    })
-
-    const postId = result.lastInsertRowid
-
-    res.redirect(`/post/${postId}`)
-})
 
 app.post("/register", async (req, res) => {
     const errors = []
@@ -529,6 +642,55 @@ app.post("/register", async (req, res) => {
     })
 
     res.redirect("/student-nonprofit")
+})
+
+app.get("/", async (req, res) => {
+    // If user is logged in, redirect them to appropriate page
+    if (req.user) {
+        // Get user type
+        const userTypeResult = await db.execute({
+            sql: "SELECT user_type FROM users WHERE id = ?",
+            args: [req.user.userid]
+        })
+        const userType = userTypeResult.rows[0]?.user_type
+        
+        // Handle nonprofit users
+        if (userType === 'nonprofit') {
+            const nonprofitProfile = await db.execute({
+                sql: "SELECT 1 FROM nonprofit_profiles WHERE user_id = ?",
+                args: [req.user.userid]
+            })
+            return nonprofitProfile.rows.length > 0 
+                ? res.redirect('/nonprofit-homepage')
+                : res.redirect('/nonprofit-profile')
+        }
+        
+        // Handle student users
+        if (userType === 'student') {
+            const studentProfile = await db.execute({
+                sql: "SELECT id, interests FROM student_profiles WHERE user_id = ?",
+                args: [req.user.userid]
+            })
+            
+            // No profile exists - go to profile creation
+            if (studentProfile.rows.length === 0) {
+                return res.redirect('/student-profile')
+            }
+            
+            // Check if interests exist
+            if (!studentProfile.rows[0].interests || studentProfile.rows[0].interests.trim() === '') {
+                return res.redirect('/interests')
+            }
+            
+            // If profile exists with interests, go to homepage
+            return res.redirect('/student-homepage')
+        }
+        
+        return res.redirect('/student-nonprofit')
+    }
+    
+    // If not logged in, show the homepage
+    res.render("homepage")
 })
 
 app.listen(5000)

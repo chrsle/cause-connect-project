@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= opportunity.title %> - Volunteer Opportunity</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <%- include('includes/header') %>
+
+    <div class="container">
+        <h1><%= opportunity.title %></h1>
+        
+        <div class="opportunity-details">
+            <div class="detail-row">
+                <h3>Organization:</h3>
+                <p><%= opportunity.nonprofit_name %></p>
+            </div>
+            
+            <div class="detail-row">
+                <h3>Description:</h3>
+                <p><%= opportunity.description %></p>
+            </div>
+            
+            <div class="detail-row">
+                <h3>Date & Time:</h3>
+                <p><%= new Date(opportunity.date).toLocaleDateString() %> at <%= opportunity.time %></p>
+            </div>
+            
+            <div class="detail-row">
+                <h3>Location:</h3>
+                <p><%= opportunity.location %></p>
+            </div>
+            
+            <div class="detail-row">
+                <h3>Organization Info:</h3>
+                <p><strong>Category:</strong> <%= opportunity.category %></p>
+                <p><strong>Mission Statement:</strong> <%= opportunity.statement %></p>
+                <p><strong>Location:</strong> <%= opportunity.org_location %></p>
+            </div>
+        </div>
+
+        <div class="signup-section">
+            <% if (typeof message !== 'undefined' && message) { %>
+                <% if (message === 'signup_success') { %>
+                    <div class="alert success">You've successfully signed up for this opportunity!</div>
+                <% } else if (message === 'already_signed_up') { %>
+                    <div class="alert info">You're already signed up for this opportunity.</div>
+                <% } %>
+            <% } %>
+
+            <% if (isSignedUp) { %>
+                <div class="alert info">You're registered for this opportunity</div>
+            <% } else { %>
+                <form action="/signup-opportunity/<%= opportunity.id %>" method="POST">
+                    <button type="submit" class="btn primary">Sign Up for This Opportunity</button>
+                </form>
+            <% } %>
+        </div>
+
+        <a href="/view-opportunity" class="btn">Back to Opportunities</a>
+    </div>
+</body>
+</html>

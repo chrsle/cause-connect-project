@@ -1,0 +1,17 @@
+<%- include('includes/head') %>
+
+<div class="opportunities-container">
+    <h1>Available Opportunities</h1>
+    
+    <div class="opportunities-grid">
+        <% opportunities.forEach(opp => { %>
+            <a href="/opportunity/<%= opp.id %>" class="opportunity-card">
+                <h3><%= opp.title %></h3>
+                <p><strong>Organization:</strong> <%= opp.nonprofit_name %></p>
+                <p><strong>When:</strong> <%= opp.date %> at <%= opp.time %></p>
+                <p><strong>Where:</strong> <%= opp.location %></p>
+            </a>
+        <% }); %>
+    </div>
+</div>
+
