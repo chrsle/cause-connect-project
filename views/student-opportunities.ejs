@@ -1,0 +1,31 @@
+
+<div class="container mt-5">
+    <h2>Your Signed-Up Opportunities</h2>
+    
+    <% if (opportunities.length === 0) { %>
+        <p>You haven't signed up for any opportunities yet.</p>
+    <% } else { %>
+        <div class="list-group">
+            <% opportunities.forEach(opportunity => { %>
+                <div class="list-group-item">
+                    <h5><%= opportunity.title %></h5>
+                    <p class="mb-1"><%= opportunity.description %></p>
+                    <small class="text-muted">
+                        <strong>Organization:</strong> <%= opportunity.nonprofit_name %><br>
+                        <strong>Date:</strong> <%= opportunity.date %> at <%= opportunity.time %><br>
+                        <strong>Location:</strong> <%= opportunity.location %>
+                    </small>
+                    <div class="mt-2">
+                        <form action="/leave-opportunity/<%= opportunity.id %>" method="POST">
+                            <button type="submit" class="btn btn-sm btn-danger" 
+                                    onclick="return confirm('Are you sure you want to leave this opportunity?')">
+                                Leave Opportunity
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+    <% } %>
+</div>
+

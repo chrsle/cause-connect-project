@@ -232,7 +232,10 @@ app.get("/nonprofit-homepage", mustBeLoggedIn, async(req, res) => {
     const nonprofitName = profile.rows[0]?.nonprofit_name
 
 
-    res.render("nonprofit-homepage", {nonprofitName})
+    res.render("nonprofit-homepage", {
+        nonprofitName,
+        showManageOpportunities: true
+    })
 })
 
 app.post("/login", async (req, res) => {
@@ -584,6 +587,184 @@ app.post('/signup-opportunity/:id', mustBeLoggedIn, async (req, res) => {
     }
 });
 
+app.get("/nonprofit-opportunities", mustBeLoggedIn, async (req, res) => {
+    try {
+        // Get nonprofit name first
+        const nonprofitResult = await db.execute({
+            sql: "SELECT nonprofit_name FROM nonprofit_profiles WHERE user_id = ?",
+            args: [req.user.userid]
+        });
+
+        if (nonprofitResult.rows.length === 0) {
+            return res.status(404).send("Nonprofit profile not found");
+        }
+
+        const nonprofitName = nonprofitResult.rows[0].nonprofit_name;
+
+        // Get all opportunities for this nonprofit
+        const opportunities = await db.execute({
+            sql: "SELECT * FROM opportunities WHERE user_id = ? ORDER BY date DESC",
+            args: [req.user.userid]
+        });
+
+        res.render("nonprofit-opportunities", {
+            opportunities: opportunities.rows,
+            nonprofitName: nonprofitName
+        });
+    } catch (error) {
+        console.error('Error fetching nonprofit opportunities:', error);
+        res.status(500).send("Server error");
+    }
+});
+
+
+
+app.get("/edit-opportunity/:id", mustBeLoggedIn, async (req, res) => {
+    try {
+        // Verify the opportunity belongs to the current nonprofit
+        const opportunity = await db.execute({
+            sql: "SELECT * FROM opportunities WHERE id = ? AND user_id = ?",
+            args: [req.params.id, req.user.userid]
+        });
+
+        if (opportunity.rows.length === 0) {
+            return res.status(404).send("Opportunity not found or you don't have permission to edit it");
+        }
+
+        res.render("edit-opportunity", {
+            opportunity: opportunity.rows[0]
+        });
+    } catch (error) {
+        console.error('Error fetching opportunity for edit:', error);
+        res.status(500).send("Server error");
+    }
+});
+
+app.post("/edit-opportunity/:id", mustBeLoggedIn, async (req, res) => {
+    try {
+        const { title, description, date, time, location } = req.body;
+        const opportunityId = req.params.id;
+
+        // Verify the opportunity belongs to the current nonprofit
+        const verifyOwnership = await db.execute({
+            sql: "SELECT 1 FROM opportunities WHERE id = ? AND user_id = ?",
+            args: [opportunityId, req.user.userid]
+        });
+
+        if (verifyOwnership.rows.length === 0) {
+            return res.status(403).send("You don't have permission to edit this opportunity");
+        }
+
+        // Update the opportunity
+        await db.execute({
+            sql: `UPDATE opportunities SET 
+                 title = ?, 
+                 description = ?, 
+                 date = ?, 
+                 time = ?, 
+                 location = ?
+                 WHERE id = ?`,
+            args: [
+                title,
+                description,
+                date,
+                time,
+                location,
+                opportunityId
+            ]
+        });
+
+        res.redirect('/nonprofit-opportunities');
+    } catch (error) {
+        console.error('Error updating opportunity:', error);
+        res.status(500).send("Server error");
+    }
+});
+
+app.post("/delete-opportunity/:id", mustBeLoggedIn, async (req, res) => {
+    try {
+        const opportunityId = req.params.id;
+
+        // Verify the opportunity belongs to the current nonprofit
+        const verifyOwnership = await db.execute({
+            sql: "SELECT 1 FROM opportunities WHERE id = ? AND user_id = ?",
+            args: [opportunityId, req.user.userid]
+        });
+
+        if (verifyOwnership.rows.length === 0) {
+            return res.status(403).send("You don't have permission to delete this opportunity");
+        }
+
+        // First delete any signups for this opportunity
+        await db.execute({
+            sql: "DELETE FROM volunteer_signups WHERE opportunity_id = ?",
+            args: [opportunityId]
+        });
+
+        // Then delete the opportunity
+        await db.execute({
+            sql: "DELETE FROM opportunities WHERE id = ?",
+            args: [opportunityId]
+        });
+
+        res.redirect('/nonprofit-opportunities');
+    } catch (error) {
+        console.error('Error deleting opportunity:', error);
+        res.status(500).send("Server error");
+    }
+});
+
+
+app.get("/student-opportunities", mustBeLoggedIn, async (req, res) => {
+    try {
+        // Get all opportunities the student has signed up for
+        const opportunities = await db.execute({
+            sql: `SELECT o.*, np.nonprofit_name 
+                 FROM opportunities o
+                 JOIN volunteer_signups vs ON o.id = vs.opportunity_id
+                 JOIN nonprofit_profiles np ON o.user_id = np.user_id
+                 WHERE vs.user_id = ?
+                 ORDER BY o.date DESC`,
+            args: [req.user.userid]
+        });
+
+        res.render("student-opportunities", {
+            opportunities: opportunities.rows
+        });
+    } catch (error) {
+        console.error('Error fetching student opportunities:', error);
+        res.status(500).send("Server error");
+    }
+});
+
+
+app.post("/leave-opportunity/:id", mustBeLoggedIn, async (req, res) => {
+    try {
+        const opportunityId = req.params.id;
+        const userId = req.user.userid;
+
+        // Verify the student is actually signed up for this opportunity
+        const signup = await db.execute({
+            sql: "SELECT 1 FROM volunteer_signups WHERE opportunity_id = ? AND user_id = ?",
+            args: [opportunityId, userId]
+        });
+
+        if (signup.rows.length === 0) {
+            return res.status(404).send("You haven't signed up for this opportunity");
+        }
+
+        // Remove the signup
+        await db.execute({
+            sql: "DELETE FROM volunteer_signups WHERE opportunity_id = ? AND user_id = ?",
+            args: [opportunityId, userId]
+        });
+
+        res.redirect("/student-opportunities");
+    } catch (error) {
+        console.error('Error leaving opportunity:', error);
+        res.status(500).send("Server error");
+    }
+});
 
 
 
