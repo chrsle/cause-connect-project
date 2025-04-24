@@ -1,17 +1,71 @@
-<%- include('includes/head') %>
 
-<div class="opportunities-container">
-    <h1>Available Opportunities</h1>
-    
-    <div class="opportunities-grid">
-        <% opportunities.forEach(opp => { %>
-            <a href="/opportunity/<%= opp.id %>" class="opportunity-card">
-                <h3><%= opp.title %></h3>
-                <p><strong>Organization:</strong> <%= opp.nonprofit_name %></p>
-                <p><strong>When:</strong> <%= opp.date %> at <%= opp.time %></p>
-                <p><strong>Where:</strong> <%= opp.location %></p>
-            </a>
-        <% }); %>
+<div class="container mt-4">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form class="row g-3 align-items-center">
+        <div class="col-md-5">
+          <label class="form-label">Location</label>
+          <input type="text" name="location_filter" class="form-control" 
+                 value="<%= query.location_filter || studentLocation %>" 
+                 placeholder="Enter city or zip code">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Within</label>
+          <select name="distance" class="form-select">
+            <option value="5" <%= maxDistance == 5 ? 'selected' : '' %>>5 miles</option>
+            <option value="10" <%= maxDistance == 10 ? 'selected' : '' %>>10 miles</option>
+            <option value="25" <%= maxDistance == 25 ? 'selected' : '' %>>25 miles</option>
+            <option value="50" <%= maxDistance == 50 ? 'selected' : '' %>>50 miles</option>
+          </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <button type="submit" class="btn btn-primary w-100">Filter</button>
+        </div>
+      </form>
+      <% if (!studentLocation) { %>
+        <div class="mt-2 text-muted small">
+          <a href="/student-profile">Set your default location</a> in your profile
+        </div>
+      <% } %>
     </div>
+  </div>
+
+  <% if (opportunities.length === 0) { %>
+    <div class="alert alert-info">
+      No opportunities found matching your criteria.
+      <% if (query.location_filter) { %>
+        Try <a href="/view-opportunity">removing location filters</a>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="row row-cols-1 row-cols-md-2 g-4">
+      <% opportunities.forEach(opp => { %>
+        <div class="col">
+          <div class="card h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between">
+                <h5 class="card-title"><%= opp.title %></h5>
+                <% if (opp.distance !== undefined) { %>
+                  <span class="badge bg-primary"><%= opp.distance %> miles</span>
+                <% } %>
+              </div>
+              <h6 class="card-subtitle mb-2 text-muted">
+                <%= opp.nonprofit_name %> • <%= opp.location %>
+              </h6>
+              <p class="card-text"><%= opp.description %></p>
+            </div>
+            <div class="card-footer bg-white border-top">
+              <small class="text-muted">
+                <%= new Date(opp.date).toLocaleDateString() %> • <%= opp.time %>
+              </small>
+              <a href="/opportunity/<%= opp.id %>" class="btn btn-sm btn-primary float-end">
+                View Details
+              </a>
+            </div>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  <% } %>
 </div>
 

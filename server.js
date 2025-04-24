@@ -5,6 +5,8 @@ const sanitizeHTML = require('sanitize-html')
 const bcrypt = require("bcrypt")
 const cookieParser = require("cookie-parser")
 const express = require("express")
+const { calculateDistance, getCoordinates } = require('./utils/geocoding');
+
 
 const { createClient } = require('@libsql/client');
 
@@ -494,25 +496,76 @@ app.post('/create-opportunity', mustBeLoggedIn, async (req, res) => {
 });
 
 
+// New route for viewing opportunities with location filtering
 app.get('/view-opportunity', mustBeLoggedIn, async (req, res) => {
     try {
-        // Get all active opportunities (no filters)
-        const opportunities = await db.execute({
-            sql: `SELECT o.*, np.nonprofit_name 
-                 FROM opportunities o
-                 JOIN nonprofit_profiles np ON o.user_id = np.user_id
-                 ORDER BY o.date DESC`
-        });
-
-        res.render('view-opportunity', {
-            opportunities: opportunities.rows,
-            user: req.user
-        });
+      // Get query parameters
+      const locationFilter = req.query.location_filter || '';
+      const maxDistance = parseInt(req.query.distance) || 25; // Default to 25 miles
+      
+      // 1. Get student's location from profile
+      const studentProfile = await db.execute(
+        "SELECT school as location FROM student_profiles WHERE user_id = ?",
+        [req.user.userid]
+      );
+      const studentLocation = studentProfile.rows[0]?.location || '';
+      
+      // Use location filter if provided, otherwise use student location
+      const searchLocation = locationFilter || studentLocation;
+  
+      // 2. Get all opportunities
+      const allOpportunities = await db.execute(`
+        SELECT o.*, np.nonprofit_name 
+        FROM opportunities o
+        JOIN nonprofit_profiles np ON o.user_id = np.user_id
+      `);
+  
+      let opportunities = allOpportunities.rows;
+  
+      // 3. Add distance if location exists
+      if (searchLocation) {
+        const searchCoords = await getCoordinates(searchLocation);
+        
+        if (searchCoords) {
+          for (const opp of opportunities) {
+            const oppCoords = await getCoordinates(opp.location);
+            opp.distance = oppCoords 
+              ? calculateDistance(
+                  searchCoords.lat, searchCoords.lon,
+                  oppCoords.lat, oppCoords.lon
+                ).toFixed(1)
+              : 'Unknown';
+          }
+  
+          // Filter by distance if specified
+          if (maxDistance) {
+            opportunities = opportunities.filter(opp => 
+              opp.distance !== 'Unknown' && parseFloat(opp.distance) <= maxDistance
+            );
+          }
+  
+          // Sort by distance (nearest first)
+          opportunities.sort((a, b) => {
+            if (a.distance === 'Unknown') return 1;
+            if (b.distance === 'Unknown') return -1;
+            return parseFloat(a.distance) - parseFloat(b.distance);
+          });
+        }
+      }
+  
+      res.render('view-opportunity', {
+        opportunities,
+        studentLocation,
+        maxDistance,
+        query: req.query // Pass the query object to the template
+      });
+  
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).send("Server error");
+      console.error("Error:", error);
+      res.status(500).send("Server error");
     }
-});
+  });
+  
 
 app.get('/opportunity/:id', mustBeLoggedIn, async (req, res) => {
     try {
