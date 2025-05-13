@@ -17,12 +17,17 @@
   .navbar-logo img {
     height: 80px; 
   }
+
+  .navBar-header{
+    text-decoration: none;
+  }
   
   .navbar-profile {
-    display: flex; 
+    display: inline-block; 
     justify-content: center;
     align-items: center;
     margin-left: auto;
+    position: relative;
   }
   
   .navbar-profile img {

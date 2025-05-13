@@ -3,7 +3,13 @@ import EventCard from './eventCard';
 import "../views/styles/eventGrid.css";
 import { Event } from "../types/types";
 
-const EventCardGrid: React.FC<{ events: Event[] }> = ({ events }) => {
+interface EventCardGridProps {
+  events: Event[];
+  userType: "student" | "organization";
+}
+
+
+const EventCardGrid: React.FC<EventCardGridProps> = ({ events, userType }) => {
   const [displayedEvents, setDisplayedEvents] = useState<Event[]>(events.slice(0, 12)); // Show first 12 events initially
   const [loading, setLoading] = useState(false);
 
@@ -35,7 +41,7 @@ const EventCardGrid: React.FC<{ events: Event[] }> = ({ events }) => {
   return (
     <div className="event-card-grid">
       {displayedEvents.map((event) => (
-        <EventCard key={event.id} event={event} />
+        <EventCard key={event.id} event={event} userType={userType} />
       ))}
       {loading && <div className="loading">Loading...</div>}
     </div>

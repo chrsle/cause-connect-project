@@ -50,3 +50,18 @@
     }
   }
   
+
+  .edit-button{
+    margin-left: 85%;;
+    background: none;
+    border: none;
+  }
+
+  .edit-button:hover{
+    cursor: pointer;
+  }
+
+  .background-disabled {
+    pointer-events: none;
+    filter: blur(2px); /* Optional: slight blur effect */
+  }

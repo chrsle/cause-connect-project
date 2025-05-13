@@ -8,6 +8,8 @@ import { dummyStudent } from "../constants/dummyStudent";
 import "./styles/landing-page.css";
 import EventCardGrid from "../components/eventCardGrid";
 
+
+
 const LandingPage = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -19,8 +21,7 @@ const LandingPage = () => {
 
   return (
     <div className="landing-page">
-      <NavBar />
-  
+      <NavBar userType="student"/>
       <div className="landing-page__content">
         <div className="landing-page-header">
           <h1 className="landing-page__greeting">
@@ -36,7 +37,7 @@ const LandingPage = () => {
 
         <div className="landing-page-events">
           <h2 className="header-events">Dive Deeper into your Interests</h2>
-          <EventCardCarousel events={dummyEvents} />
+          <EventCardCarousel events={dummyEvents} userType="student"/>
         </div>
 
         <div className="landing-page-explore">
@@ -53,7 +54,7 @@ const LandingPage = () => {
           </div>
 
          
-          <EventCardGrid events={filteredEvents} />
+          <EventCardGrid events={filteredEvents} userType="student"/>
         </div>
       </div>
     </div>

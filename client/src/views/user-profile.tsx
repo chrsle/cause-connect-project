@@ -1,0 +1,221 @@
+import React, { useState } from "react";
+import "./styles/userProfile.css"; // Using your existing CSS file structure
+import avatar from "../default-avatar.png";
+import { dummyStudent } from "../constants/dummyStudent";
+import NavBar from "../components/navBar";
+
+function UserProfile() {
+  const [imageUrl, setImageUrl] = useState(avatar);
+  const [isHovering, setIsHovering] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedInterests, setSelectedInterests] = useState(
+    dummyStudent.interests.split(", ")
+  );
+
+  const availableInterests = [
+    "Animals",
+    "Art and Culture",
+    "Education",
+    "Engineering",
+    "Environment",
+    "Health & Wellness",
+    "Mathematics",
+    "Science",
+    "Social Justice",
+    "Sports & Fitness",
+    "Technology"
+  ];
+
+  // Profile picture upload functionality
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result;
+        if (typeof result === 'string') {
+          setImageUrl(result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+ // Interest toggling functionality
+ const toggleInterest = (interest: string) => {
+    if (selectedInterests.includes(interest)) {
+      setSelectedInterests(selectedInterests.filter(item => item !== interest));
+    } else {
+      setSelectedInterests([...selectedInterests, interest]);
+    }
+  };
+
+    // Handle saving changes
+    const saveChanges = () => {
+        // Here you would typically save the changes to your backend
+        // For now, we'll just exit edit mode
+        setEditMode(false);
+      };
+
+
+  return (
+    <>
+      <NavBar userType="student" />
+      <div className="user-profile">
+        {/* Left section with profile picture and name */}
+        <div className="left-container">
+          <div 
+            className="profile-pic-container"
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+          >
+            <img src={imageUrl} alt="Profile" className="profile-pic" />
+            
+            {isHovering && (
+              <div className="image-overlay">
+                <label className="camera-button">
+                  <span className="camera-icon">📷</span>
+                  <input 
+                    type="file" 
+                    className="hidden-input" 
+                    accept="image/*" 
+                    onChange={handleImageChange} 
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <span className="username">
+              {dummyStudent.full_name}'s profile page
+            </span>
+          </div>
+
+          <div className="skills-container">
+            <h3 className="skills-title">Upcoming Events: {dummyStudent.upcoming_events}</h3>
+            <h3 className="skills-title">Past Events: {dummyStudent.past_events}</h3>
+          </div>
+
+          <button 
+            className="edit-profile-btn"
+            onClick={() => setEditMode(!editMode)}
+          >
+            {editMode ? "Save Profile" : "Edit Profile"}
+          </button>
+        </div>
+
+        {/* Right section with profile details */}
+        <div className="right-container">
+          <h2 className="section-title">Profile Information</h2>
+          
+          <div className="info-grid">
+            <div className="info-item">
+              <h2 className="info-label">
+                <span className="info-icon">👤</span> Name
+              </h2>
+              {editMode ? (
+                <input 
+                  type="text" 
+                  className="info-input" 
+                  defaultValue={dummyStudent.full_name} 
+                />
+              ) : (
+                <p className="user-info">{dummyStudent.full_name}</p>
+              )}
+            </div>
+
+            <div className="info-item">
+              <h2 className="info-label">
+                <span className="info-icon">✉️</span> Email
+              </h2>
+              {editMode ? (
+                <input 
+                  type="email" 
+                  className="info-input" 
+                  defaultValue="student@example.com" 
+                />
+              ) : (
+                <p className="user-info">student@example.com</p>
+              )}
+            </div>
+
+            <div className="info-item">
+              <h2 className="info-label">
+                <span className="info-icon">💼</span> School
+              </h2>
+              {editMode ? (
+                <input 
+                  type="text" 
+                  className="info-input" 
+                  defaultValue={dummyStudent.school} 
+                />
+              ) : (
+                <p className="user-info">{dummyStudent.school}</p>
+              )}
+            </div>
+
+            <div className="info-item">
+              <h2 className="info-label">
+                <span className="info-icon">❤️</span> Interests
+              </h2>
+              {editMode ? (
+                  <div className="interests-dropdown-container">
+                  <div className="selected-interests">
+                    {selectedInterests.map((interest, index) => (
+                      <span key={index} className="selected-interest">
+                        {interest}
+                        <span 
+                          className="remove-interest" 
+                          onClick={() => toggleInterest(interest)}
+                        >
+                          ×
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="interests-dropdown">
+                    <div className="dropdown-label">
+                      Add interests <span className="dropdown-arrow">▼</span>
+                    </div>
+                    <div className="dropdown-options">
+                      {availableInterests
+                        .filter(interest => !selectedInterests.includes(interest))
+                        .map((interest, index) => (
+                          <div 
+                            key={index} 
+                            className="dropdown-option"
+                            onClick={() => toggleInterest(interest)}
+                          >
+                            {interest}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="user-info">{selectedInterests.join(", ")}</p>
+              )}
+            </div>
+
+            <div className="info-item bio-item">
+              <h2 className="info-label">
+                <span className="info-icon">📝</span> Bio
+              </h2>
+              {editMode ? (
+                <textarea 
+                  className="bio-input" 
+                  defaultValue="I'm a student passionate about learning and connecting with others in my field."
+                />
+              ) : (
+                <p className="user-bio">I'm a student passionate about learning and connecting with others in my field.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      </>
+  );
+}
+
+export default UserProfile;

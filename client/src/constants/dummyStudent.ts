@@ -8,4 +8,7 @@ export const dummyStudent = {
     school: "School of School",
     bio: "Boss",
     interests: "Sports",
+    email: "stevenvu2468@gmail.com",
+    upcoming_events: 0,
+    past_events: 0,
 }

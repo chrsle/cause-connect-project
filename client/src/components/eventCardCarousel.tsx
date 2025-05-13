@@ -5,9 +5,10 @@ import EventCard from './eventCard';
 
 interface EventCardCarouselProps {
   events: Event[];
+  userType: "student" | "organization";
 }
 
-const EventCardCarousel: React.FC<EventCardCarouselProps> = ({ events }) => {
+const EventCardCarousel: React.FC<EventCardCarouselProps> = ({ events, userType }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const handlePrev = () => {
@@ -33,7 +34,7 @@ const EventCardCarousel: React.FC<EventCardCarouselProps> = ({ events }) => {
         >
           {events.map((event, index) => (
             <div key={index} className="carousel-item">
-              <EventCard event={event} />
+              <EventCard event={event}  userType={userType}/>
             </div>
           ))}
         </div>
