@@ -4,8 +4,9 @@ import {
   createOpportunity,
   updateOpportunity,
   deleteOpportunity,
-  getUserOpportunities, // Fetches only the user's opportunities
-} from '../utils/events-utils'; // Adjust the path as needed
+  getUserOpportunities,
+  getNearbyOpportunities,
+} from '../utils/events-utils';
 
 interface Opportunity {
   id: number;
@@ -16,11 +17,13 @@ interface Opportunity {
   date: string;
   time: string;
   location: string;
+  distance?: number; // Optional distance field if available
 }
 
 const OpportunitiesPage = () => {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]); // All opportunities
-  const [userOpportunities, setUserOpportunities] = useState<Opportunity[]>([]); // User-specific opportunities
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [userOpportunities, setUserOpportunities] = useState<Opportunity[]>([]);
+  const [nearbyOpportunities, setNearbyOpportunities] = useState<Opportunity[]>([]);
   const [newOpportunity, setNewOpportunity] = useState({
     nonprofit_name: '',
     title: '',
@@ -29,16 +32,16 @@ const OpportunitiesPage = () => {
     time: '',
     location: '',
   });
-  const [editingOpportunity, setEditingOpportunity] = useState<Opportunity | null>(null); // Use the Opportunity type
+  const [editingOpportunity, setEditingOpportunity] = useState<Opportunity | null>(null);
   const [error, setError] = useState<string>('');
+  const [nearbyLocation, setNearbyLocation] = useState('');
 
-  // Fetch all opportunities and user-specific opportunities on component mount
+  // Fetch all opportunities and user-specific opportunities on mount
   useEffect(() => {
     const fetchOpportunities = async () => {
       try {
         const allOpportunities = await getAllOpportunities();
         setOpportunities(allOpportunities);
-        console.log('All opportunities:', allOpportunities);
       } catch (err) {
         setError('Failed to fetch opportunities');
         console.error(err);
@@ -50,9 +53,8 @@ const OpportunitiesPage = () => {
         const userCreatedOpportunities = await getUserOpportunities();
         if (userCreatedOpportunities && Array.isArray(userCreatedOpportunities)) {
           setUserOpportunities(userCreatedOpportunities);
-          console.log('User opportunities front:', userCreatedOpportunities);
         } else {
-          setUserOpportunities([]); // Empty array if no opportunities
+          setUserOpportunities([]);
         }
       } catch (err) {
         setError('Failed to fetch user opportunities');
@@ -62,9 +64,9 @@ const OpportunitiesPage = () => {
 
     fetchOpportunities();
     fetchUserOpportunities();
-  }, []); // Re-fetch when the component is mounted
+  }, []);
 
-  // Handle form input changes
+  // Handle form input changes for new/edit opportunity
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setNewOpportunity({
@@ -73,7 +75,7 @@ const OpportunitiesPage = () => {
     });
   };
 
-  // Handle the form submission to create a new opportunity
+  // Create new opportunity
   const handleCreateOpportunity = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -94,12 +96,14 @@ const OpportunitiesPage = () => {
         time: '',
         location: '',
       });
-      // Re-fetch the opportunities after creation
+
+      // Refresh lists
       const allOpportunities = await getAllOpportunities();
       setOpportunities(allOpportunities);
+
       const userCreatedOpportunities = await getUserOpportunities();
-      if (userCreatedOpportunities && Array.isArray(userCreatedOpportunities.rows)) {
-        setUserOpportunities(userCreatedOpportunities.rows);
+      if (userCreatedOpportunities && Array.isArray(userCreatedOpportunities)) {
+        setUserOpportunities(userCreatedOpportunities);
       }
     } catch (err) {
       setError('Failed to create opportunity');
@@ -107,7 +111,7 @@ const OpportunitiesPage = () => {
     }
   };
 
-  // Handle edit button click to update an opportunity
+  // Start editing opportunity
   const handleEditOpportunity = (opportunity: Opportunity) => {
     setEditingOpportunity(opportunity);
     setNewOpportunity({
@@ -120,7 +124,7 @@ const OpportunitiesPage = () => {
     });
   };
 
-  // Handle update form submission
+  // Update opportunity
   const handleUpdateOpportunity = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -144,12 +148,14 @@ const OpportunitiesPage = () => {
           time: '',
           location: '',
         });
-        // Re-fetch the opportunities after update
+
+        // Refresh lists
         const allOpportunities = await getAllOpportunities();
         setOpportunities(allOpportunities);
+
         const userCreatedOpportunities = await getUserOpportunities();
-        if (userCreatedOpportunities && Array.isArray(userCreatedOpportunities.rows)) {
-          setUserOpportunities(userCreatedOpportunities.rows);
+        if (userCreatedOpportunities && Array.isArray(userCreatedOpportunities)) {
+          setUserOpportunities(userCreatedOpportunities);
         }
       } catch (err) {
         setError('Failed to update opportunity');
@@ -158,19 +164,45 @@ const OpportunitiesPage = () => {
     }
   };
 
-  // Handle delete button click
+  // Delete opportunity
   const handleDeleteOpportunity = async (id: number) => {
     try {
       await deleteOpportunity(id);
-      // Re-fetch the opportunities after deletion
+
+      // Refresh lists
       const allOpportunities = await getAllOpportunities();
       setOpportunities(allOpportunities);
+
       const userCreatedOpportunities = await getUserOpportunities();
-      if (userCreatedOpportunities && Array.isArray(userCreatedOpportunities.rows)) {
-        setUserOpportunities(userCreatedOpportunities.rows);
+      if (userCreatedOpportunities && Array.isArray(userCreatedOpportunities)) {
+        setUserOpportunities(userCreatedOpportunities);
       }
     } catch (err) {
       setError('Failed to delete opportunity');
+      console.error(err);
+    }
+  };
+
+  // Nearby location input change
+  const handleNearbyLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNearbyLocation(e.target.value);
+  };
+
+  // Submit nearby location search
+  const handleNearbySearchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (nearbyLocation.trim() === '') {
+      setError('Please enter a location to search nearby opportunities.');
+      setNearbyOpportunities([]);
+      return;
+    }
+    setError('');
+    try {
+      // Pass location string + fixed radius 25 miles
+      const nearby = await getNearbyOpportunities(nearbyLocation.trim(), 25);
+      setNearbyOpportunities(nearby);
+    } catch (err) {
+      setError('Failed to fetch nearby opportunities');
       console.error(err);
     }
   };
@@ -181,14 +213,56 @@ const OpportunitiesPage = () => {
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      {/* Display all opportunities */}
+      {/* Nearby Location Search Form */}
+      <form onSubmit={handleNearbySearchSubmit} style={{ marginBottom: '2rem' }}>
+        <label>
+          Enter your location to find nearby opportunities (e.g., city or zip code):
+          <input
+            type="text"
+            value={nearbyLocation}
+            onChange={handleNearbyLocationChange}
+            placeholder="Enter location"
+            style={{ marginLeft: '0.5rem' }}
+            required
+          />
+        </label>
+        <button type="submit" style={{ marginLeft: '1rem' }}>
+          Search Nearby
+        </button>
+      </form>
+
+      {/* Nearby Opportunities */}
+      <h2>Nearby Opportunities (within 25 miles)</h2>
+      {nearbyOpportunities.length > 0 ? (
+        <ul>
+          {nearbyOpportunities.map((opportunity) => (
+            <li key={opportunity.id}>
+              <h3>{opportunity.title}</h3>
+              <p>{opportunity.description}</p>
+              <p>
+                {opportunity.date} at {opportunity.time}
+              </p>
+              <p>Location: {opportunity.location}</p>
+              {opportunity.distance !== undefined && (
+                <p>Distance: {opportunity.distance} miles</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No nearby opportunities found. Use the form above to search.</p>
+      )}
+
+      {/* All Opportunities */}
       <h2>All Opportunities</h2>
       <ul>
         {opportunities.map((opportunity) => (
           <li key={opportunity.id}>
             <h3>{opportunity.title}</h3>
             <p>{opportunity.description}</p>
-            <p>{opportunity.date} at {opportunity.time}</p>
+            <p>
+              {opportunity.date} at {opportunity.time}
+            </p>
             <p>Location: {opportunity.location}</p>
             <button onClick={() => handleEditOpportunity(opportunity)}>Edit</button>
             <button onClick={() => handleDeleteOpportunity(opportunity.id)}>Delete</button>
@@ -196,26 +270,28 @@ const OpportunitiesPage = () => {
         ))}
       </ul>
 
-      {/* Display user-specific opportunities */}
+      {/* User-Specific Opportunities */}
       <h2>Your Opportunities</h2>
-      <ul>
-        {userOpportunities.length > 0 ? (
-          userOpportunities.map((opportunity) => (
+      {userOpportunities.length > 0 ? (
+        <ul>
+          {userOpportunities.map((opportunity) => (
             <li key={opportunity.id}>
               <h3>{opportunity.title}</h3>
               <p>{opportunity.description}</p>
-              <p>{opportunity.date} at {opportunity.time}</p>
+              <p>
+                {opportunity.date} at {opportunity.time}
+              </p>
               <p>Location: {opportunity.location}</p>
               <button onClick={() => handleEditOpportunity(opportunity)}>Edit</button>
               <button onClick={() => handleDeleteOpportunity(opportunity.id)}>Delete</button>
             </li>
-          ))
-        ) : (
-          <p>No opportunities created by you.</p>
-        )}
-      </ul>
+          ))}
+        </ul>
+      ) : (
+        <p>No opportunities created by you.</p>
+      )}
 
-      {/* Create or Edit Opportunity Form */}
+      {/* Create/Edit Opportunity Form */}
       <form onSubmit={editingOpportunity ? handleUpdateOpportunity : handleCreateOpportunity}>
         <h2>{editingOpportunity ? 'Edit Opportunity' : 'Create New Opportunity'}</h2>
 

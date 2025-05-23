@@ -106,3 +106,16 @@ export const deleteOpportunity = async (id: number) => {
     throw error;
   }
 };
+
+// Function to get opportunities near a location (lat, lon, radius in miles)
+export const getNearbyOpportunities = async (location: string, radius: number = 25) => {
+  try {
+    const url = `${API_BASE}/opportunities/nearby?location=${encodeURIComponent(location)}&radius=${radius}`;
+    const data = await makeRequest(url, 'GET');
+    return data;
+  } catch (error) {
+    console.error('Error fetching nearby opportunities:', error);
+    throw error;
+  }
+};
+

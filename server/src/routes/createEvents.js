@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { createClient } = require('@libsql/client');
+const { calculateDistance, getCoordinates } = require('../utils/geocoding');
 
 const router = express.Router();
 
@@ -58,6 +59,42 @@ router.get('/opportunities', authenticate, async (req, res) => {
     res.status(500).json({ error: 'Database error.'});
   }
 });
+
+// GET: Find opportunities near a location
+router.get('/opportunities/nearby', authenticate, async (req, res) => {
+  const { location, radius } = req.query; // e.g. location=San Francisco&radius=10 (miles)
+
+  if (!location || !radius) {
+    return res.status(400).json({ error: 'Location and radius are required query parameters.' });
+  }
+
+  try {
+    const userCoords = await getCoordinates(location);
+    if (!userCoords) {
+      return res.status(400).json({ error: 'Unable to geocode the provided location.' });
+    }
+
+    const result = await db.execute(`SELECT * FROM opportunities`);
+    const allOpportunities = result.rows;
+
+    const filtered = [];
+    for (const opp of allOpportunities) {
+      const coords = await getCoordinates(opp.location);
+      if (!coords) continue;
+
+      const dist = calculateDistance(userCoords.lat, userCoords.lon, coords.lat, coords.lon);
+      if (dist <= parseFloat(radius)) {
+        filtered.push({ ...opp, distance: dist.toFixed(2) });
+      }
+    }
+
+    res.json(filtered);
+  } catch (err) {
+    console.error('Error in nearby search:', err);
+    res.status(500).json({ error: 'Error processing location search.' });
+  }
+});
+
 
 // POST: Create a new opportunity
 router.post('/opportunities', authenticate, async (req, res) => {
