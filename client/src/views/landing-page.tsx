@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import NavBar from "../components/navBar";
 import { Event } from "../types/types";
 import EventCard from "../components/eventCard";
@@ -10,6 +10,34 @@ import EventCardGrid from "../components/eventCardGrid";
 
 const LandingPage = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const res = await fetch("/api/me", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to load user info");
+        }
+
+        const data = await res.json();
+        setUserData(data);
+      } catch (err: any) {
+        console.error("Error fetching user data:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   // Filter events based on search query
   const filteredEvents = dummyEvents.filter(event =>

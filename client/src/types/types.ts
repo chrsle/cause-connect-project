@@ -14,7 +14,7 @@ export type Student = {
     interests: string;
 }
 
-export type Orgnization = {
+export type Organization = {
     id: number;
     user_id: number;
     name: string;

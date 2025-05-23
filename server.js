@@ -102,20 +102,20 @@ app.use(async function(req, res, next) {
     next()
 })
 
-app.get("/", async (req, res) => {
-    if(req.user) {
-        const posts = await db.execute({
-            sql: "SELECT * FROM posts WHERE authorid = ? ORDER BY createdDate DESC",
-            args: [req.user.userid]
-        })
-        return res.render("dashboard", {posts: posts.rows})
-    }
-    res.render("homepage")
-})
+// app.get("/", async (req, res) => {
+//     if(req.user) {
+//         const posts = await db.execute({
+//             sql: "SELECT * FROM posts WHERE authorid = ? ORDER BY createdDate DESC",
+//             args: [req.user.userid]
+//         })
+//         return res.render("dashboard", {posts: posts.rows})
+//     }
+//     res.render("homepage")
+// })
 
-app.get("/login", (req, res) => {
-    res.render("login")
-})
+// app.get("/login", (req, res) => {
+//     res.render("login")
+// })
 
 app.get("/logout", (req, res) => {
     res.clearCookie("ourSimpleApp")
@@ -150,86 +150,86 @@ app.get("/student-nonprofit", mustBeLoggedIn, async (req, res) => {
     res.render("student-nonprofit")
 })
 
-app.get("/student-profile", mustBeLoggedIn, async (req, res) => {
-    const profile = await db.execute({
-        sql: "SELECT * FROM student_profiles WHERE user_id = ?",
-        args: [req.user.userid]
-    })
+// app.get("/student-profile", mustBeLoggedIn, async (req, res) => {
+//     const profile = await db.execute({
+//         sql: "SELECT * FROM student_profiles WHERE user_id = ?",
+//         args: [req.user.userid]
+//     })
 
-    if(profile.rows[0] && profile.rows[0].interests && profile.rows[0].interests.trim().length > 0) {
-        return res.redirect('/student-homepage')
-    }
+//     if(profile.rows[0] && profile.rows[0].interests && profile.rows[0].interests.trim().length > 0) {
+//         return res.redirect('/student-homepage')
+//     }
 
-    res.render("student-profile")
-})
+//     res.render("student-profile")
+// })
 
-app.post("/student-nonprofit", mustBeLoggedIn, async (req, res) => {
-    const { userType } = req.body;
+// app.post("/student-nonprofit", mustBeLoggedIn, async (req, res) => {
+//     const { userType } = req.body;
 
-    if (userType !== "student" && userType !== "nonprofit") {
-        return res.render("student-nonprofit", { errors: ["Invalid user type."] });
-    }
+//     if (userType !== "student" && userType !== "nonprofit") {
+//         return res.render("student-nonprofit", { errors: ["Invalid user type."] });
+//     }
 
-    await db.execute({
-        sql: "UPDATE users SET user_type = ? WHERE id = ?",
-        args: [userType, req.user.userid]
-    });
+//     await db.execute({
+//         sql: "UPDATE users SET user_type = ? WHERE id = ?",
+//         args: [userType, req.user.userid]
+//     });
 
-    if (userType === "student") {
-        return res.redirect("/student-profile");
-    } else if (userType === "nonprofit") {
-        return res.redirect("/nonprofit-profile");
-    }
-})
+//     if (userType === "student") {
+//         return res.redirect("/student-profile");
+//     } else if (userType === "nonprofit") {
+//         return res.redirect("/nonprofit-profile");
+//     }
+// })
 
-app.get("/nonprofit-profile", mustBeLoggedIn, async (req, res) => {
-    const profile = await db.execute({
-        sql: "SELECT * FROM nonprofit_profiles WHERE user_id = ?",
-        args: [req.user.userid]
-    })
+// app.get("/nonprofit-profile", mustBeLoggedIn, async (req, res) => {
+//     const profile = await db.execute({
+//         sql: "SELECT * FROM nonprofit_profiles WHERE user_id = ?",
+//         args: [req.user.userid]
+//     })
 
-    if(profile.rows.length > 0) {
-        return res.redirect('/nonprofit-homepage')
-    }
+//     if(profile.rows.length > 0) {
+//         return res.redirect('/nonprofit-homepage')
+//     }
 
-    res.render("nonprofit-profile")
-})
+//     res.render("nonprofit-profile")
+// })
 
-app.post("/nonprofit-profile", mustBeLoggedIn, async (req, res) => {
-    const existingProfile = await db.execute({
-        sql: "SELECT 1 FROM nonprofit_profiles WHERE user_id = ?",
-        args: [req.user.userid]
-    })
+// app.post("/nonprofit-profile", mustBeLoggedIn, async (req, res) => {
+//     const existingProfile = await db.execute({
+//         sql: "SELECT 1 FROM nonprofit_profiles WHERE user_id = ?",
+//         args: [req.user.userid]
+//     })
 
-    if(existingProfile.rows.length > 0) {
-        return res.redirect('/nonprofit-homepage')
-    }
+//     if(existingProfile.rows.length > 0) {
+//         return res.redirect('/nonprofit-homepage')
+//     }
 
-    await db.execute({
-        sql: "INSERT INTO nonprofit_profiles (user_id, nonprofit_name, location, category, statement) VALUES(?, ?, ?, ?, ?)",
-        args: [
-            req.user.userid,
-            req.body.nonprofitName,
-            req.body.location,
-            req.body.category,
-            req.body.statement
-        ]
-    })
+//     await db.execute({
+//         sql: "INSERT INTO nonprofit_profiles (user_id, nonprofit_name, location, category, statement) VALUES(?, ?, ?, ?, ?)",
+//         args: [
+//             req.user.userid,
+//             req.body.nonprofitName,
+//             req.body.location,
+//             req.body.category,
+//             req.body.statement
+//         ]
+//     })
 
-    res.redirect('/nonprofit-homepage')
-})
+//     res.redirect('/nonprofit-homepage')
+// })
 
-app.get("/nonprofit-homepage", mustBeLoggedIn, async(req, res) => {
-    const profile = await db.execute({
-        sql: "SELECT nonprofit_name FROM nonprofit_profiles WHERE user_id = ?",
-        args: [req.user.userid]
-    })
+// app.get("/nonprofit-homepage", mustBeLoggedIn, async(req, res) => {
+//     const profile = await db.execute({
+//         sql: "SELECT nonprofit_name FROM nonprofit_profiles WHERE user_id = ?",
+//         args: [req.user.userid]
+//     })
 
-    const nonprofitName = profile.rows[0]?.nonprofit_name
+//     const nonprofitName = profile.rows[0]?.nonprofit_name
 
 
-    res.render("nonprofit-homepage", {nonprofitName})
-})
+//     res.render("nonprofit-homepage", {nonprofitName})
+// })
 
 app.post("/login", async (req, res) => {
     let errors = []

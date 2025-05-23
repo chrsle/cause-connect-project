@@ -178,3 +178,13 @@ textarea {
     font-size: 16px;
     opacity: 1;
   }
+
+  .final-step-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px; /* Optional: adds extra spacing between buttons */
+    margin-top: 20px;
+  }
+  
+
+  

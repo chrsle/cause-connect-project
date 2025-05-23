@@ -1,42 +1,35 @@
 import React, { useState } from "react";
 import "./styles/home.css";
 import blueTransparent from "../blueTransparent.png";
-import { loginRequest } from "../utils/user-utils";
 import Registration from "../components/RegistrationForm";
+import { login, signup } from "../utils/user-utils";
 
 const Home = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showRegistration, setShowRegistration] = useState(false);
-
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  const [username, setUsername] = useState(""); // capture input values
+  const [password, setPassword] = useState("");
+  
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const username = (document.getElementById("username") as HTMLInputElement).value;
-    const password = (document.getElementById("password") as HTMLInputElement).value;
-
     setLoading(true);
     setError(null);
 
-    try {
-      const response = await loginRequest(username, password);
-      if (response.success) {
-        console.log("Login successful", response.data);
-        // TODO: Redirect to dashboard
+    const res = await login(username, password);
 
-
-      } else {
-        console.log("Login failed", response.error);
-        setError("Login failed. Please try again.");
-      }
-    } catch (error) {
-      console.error("Error during login:", error);
-      setError("An error occurred during login");
-    } finally {
-      setLoading(false);
+    if (res.success) {
+      // You can redirect, fetch session info, or show a success message
+      window.location.href = "/landing-page"; // example route
+    } else {
+      setError(res.message);
+      console.error("Login error:", res.message);
     }
+
+    setLoading(false);
   };
 
+  
   return (
     <div className="home">
       <div className="home__container">
@@ -53,13 +46,29 @@ const Home = () => {
               <h1 className="signin">Start Connecting!</h1>
             </div>
             <form onSubmit={handleLogin}>
-              <div className="form-group">
-                <input type="username" id="username" placeholder="Username" required />
-              </div>
-              <div className="form-group">
-                <input type="password" id="password" placeholder="Password" required />
-                <p className="forgot-password">Forgot Password?</p>
-              </div>
+            <div className="form-group">
+              <input
+                type="text"
+                id="username"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <input
+                type="password"
+                id="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <p className="forgot-password">Forgot Password?</p>
+            </div>
+
               <button type="submit" className="login-btn">
                 {loading ? "Logging in..." : "Login"}
               </button>

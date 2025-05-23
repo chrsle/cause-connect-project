@@ -1,79 +1,115 @@
 import React, { useState } from "react";
 import "../views/styles/registration.css";
+import { signup } from "../utils/user-utils";
 
 const Registration = () => {
-    const [usertype, setUsertype] = useState<string | null>(null);
-    const [slide, setSlide] = useState(0);
-    const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [usertype, setUsertype] = useState<string | null>(null);
+  const [slide, setSlide] = useState(0);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
-    const[fullname, setFullname] = useState<string | null>(null);
-    const[age, setAge] = useState<number | null>(null);
-    const[school, setSchool] = useState<string | null>(null);
-    const [bio, setBio] = useState<string | null>(null);
+  const [fullname, setFullname] = useState<string | null>(null);
+  const [age, setAge] = useState<number | null>(null);
+  const [school, setSchool] = useState<string | null>(null);
+  const [bio, setBio] = useState<string | null>(null);
 
-    const[nonprofitName, setNonprofitName] = useState<string | null>(null);
-    const [selectedCauses, setSelectedCauses] = useState<string[]>([]);
-    const[mission, setMission] = useState<string | null>(null);
-    const[location, setLocation] = useState<string | null>(null);
+  const [nonprofitName, setNonprofitName] = useState<string | null>(null);
+  const [selectedCauses, setSelectedCauses] = useState<string[]>([]);
+  const [mission, setMission] = useState<string | null>(null);
+  const [location, setLocation] = useState<string | null>(null);
 
+  const [username, setUsername] = useState<string | null>(null);
+  const [password, setPassword] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState<string | null>(null);
+  
+  const [passwordsMatch, setPasswordsMatch] = useState<boolean>(true);
 
-    const saveStudentInfo = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        setFullname(formData.get("fullname") as string);
-        setAge(Number(formData.get("age")));
-        setSchool(formData.get("school") as string);
-        setBio(formData.get("bio") as string);
-    }
+  const toggleCause = (cause: string) => {
+    setSelectedCauses((prev) =>
+      prev.includes(cause)
+        ? prev.filter((c) => c !== cause)
+        : [...prev, cause]
+    );
+  };
 
-    const saveNonProfitInfo = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        setNonprofitName(formData.get("name") as string);
-        setLocation(formData.get("location") as string);
-        setMission(formData.get("mission") as string);
-    }
-
-    const toggleCause = (cause: string) => {
-        setSelectedCauses((prev) =>
-          prev.includes(cause)
-            ? prev.filter((c) => c !== cause)
-            : [...prev, cause]
-        );
-    };
-      
-
-    const toggleInterest = (interest: string) => {
+  const toggleInterest = (interest: string) => {
     setSelectedInterests((prev) =>
-        prev.includes(interest)
+      prev.includes(interest)
         ? prev.filter((i) => i !== interest)
         : [...prev, interest]
     );
+  };
+
+  const handleUsertypeSelect = (type: string) => {
+    setUsertype(type);
+    setSlide(1);
+  };
+
+  const handleNextSlide = () => {
+    // Check if the usertype is selected
+    if (usertype == "nonprofit" && slide == 1) {
+        setSlide(2);
+    }
+    setSlide((prev) => prev + 1);
+  };
+
+  const handlePreviousSlide = () => {
+    setSlide((prev) => Math.max(prev - 1, 0));
+  };
+
+  const handleComplete = async () => {
+    // Ensure the passwords match
+    if (password !== confirmPassword) {
+      setPasswordsMatch(false);
+      return;
+    }
+
+    if (!username || !password || !confirmPassword || !usertype) {
+        console.error("Missing required fields");
+        return;
+      }
+  
+    setPasswordsMatch(true); // reset the error if previously set
+  
+    // Prepare the registration payload
+    const registrationData = {
+      usertype,
+      fullname,
+      age,
+      school,
+      bio,
+      nonprofitName,
+      selectedCauses,
+      mission,
+      location,
+      selectedInterests,
+      username,
+      password,
     };
 
-
-    const handleUsertypeSelect = (type: string) => {
-        setUsertype(type);
-        setSlide(1);
-    };
-
-    const handleNextSlide = () => {
-        setSlide((prev) => prev + 1);
-    };
-
-    const handlePreviousSlide = () => {
-        setSlide((prev) => Math.max(prev - 1, 0));
-    };
-    
-    const handleComplete = () => {
-        console.log("Registration complete");
-        // TODO: redirect to dashboard or trigger confirmation
-        //Post to account db and refresh to login
-        setSlide(3);
+    console.log("Registration Data:", registrationData);
+  
+    try {
+      // Call signup utility function (assumes it returns a Promise)
+      const res = await signup(username, password, usertype);
+  
+      if (res.success) {
+        console.log("User registered successfully.");
+        setSlide(4);
+        // Optionally: redirect after delay
         setTimeout(() => {
-            window.location.href = "/";  
-        }, 2000);    
-    };
+          window.location.href = "/";
+        }, 2000);
+      } else {
+        // Handle failure (e.g., username taken)
+        console.error("Registration failed:", res.message);
+        alert("Registration failed: " + res.message);
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+      alert("An error occurred during registration. Please try again.");
+    }
+  };
+  
 
   return (
     <div className="registration-flow-registration">
@@ -87,101 +123,116 @@ const Registration = () => {
         </div>
       )}
 
-        {slide === 1 && usertype === "student" && (
+      {slide === 1 && usertype === "student" && (
         <form className="form-registration" onSubmit={(e) => { e.preventDefault(); handleNextSlide(); }}>
-            <h2>Tell us about yourself..</h2>
-            <input name="fullname" placeholder="Full Name" required />
-            <input name="age" type="number" placeholder="Age" required />
-            <input name="school" placeholder="School" required />
-            <textarea name="bio" placeholder="Personal Bio" required />
-            
-            <div className="form-nav-buttons">
+          <h2>Tell us about yourself..</h2>
+          <input name="fullname" placeholder="Full Name" onBlur={(e) => setFullname(e.target.value)} required />
+          <input name="age" type="number" placeholder="Age" onBlur={(e) => setAge(Number(e.target.value))} required />
+          <input name="school" placeholder="School" onBlur={(e) => setSchool(e.target.value)} required />
+          <textarea name="bio" placeholder="Personal Bio" onBlur={(e) => setBio(e.target.value)} required />
+          <div className="form-nav-buttons">
             <button type="button" onClick={handlePreviousSlide}>Back</button>
             <button type="submit">Next</button>
-            </div>
+          </div>
         </form>
-        )}
+      )}
 
-
-        {slide === 1 && usertype === "nonprofit" && (
+      {slide === 1 && usertype === "nonprofit" && (
         <form className="form-registration" onSubmit={(e) => { e.preventDefault(); handleNextSlide(); }}>
-            <h2>Nonprofit Info</h2>
-            <input name="name" placeholder="Nonprofit Name" required />
-            <input name="location" placeholder="Location" required />
-            <div>
-                <p className = "cause-prompt">Select your cause(s):</p>
-                <div className="interests-grid">
-                    {[
-                    "Animals",
-                    "Children & Youth",
-                    "Cultural & Education",
-                    "Disabilities",
-                    "Disaster Relief",
-                    "Elderly",
-                    "Environment",
-                    "Global – Locale Based",
-                    "Health & Disease",
-                    "Homeless",
-                    "Hunger & Poverty",
-                    "International",
-                    "Military Charities",
-                    "Racial Equality",
-                    "Service & Benevolence Clubs",
-                    "Women's Issues"
-                    ].map((cause) => (
-                    <button
-                        key={cause}
-                        type="button"
-                        className={`interest-btn ${selectedCauses.includes(cause) ? 'selected' : ''}`}
-                        onClick={() => toggleCause(cause)}
-                    >
-                        {selectedCauses.includes(cause) ? cause : `+ ${cause}`}
-                    </button>
-                    ))}
-                </div>
-            </div>
-            <textarea name="mission" placeholder="Mission Statement" required />
-            
-            <div className="form-nav-buttons">
-            <button type="button" onClick={handlePreviousSlide}>Back</button>
-            <button type="submit" onClick = {handleComplete}>Finish</button>
-            </div>
-        </form>
-        )}
-
-
-        {slide === 2 && usertype === "student" && (
-        <form className="form-registration" onSubmit={(e) => { e.preventDefault(); handleComplete(); }}>
-            <h2>What are your interests and passions?</h2>
+          <h2>Nonprofit Info</h2>
+          <input name="name" placeholder="Nonprofit Name" onBlur={(e) => setNonprofitName(e.target.value)} required />
+          <input name="location" placeholder="Location" onBlur={(e) => setLocation(e.target.value)} required />
+          <div>
+            <p className="cause-prompt">Select your cause(s):</p>
             <div className="interests-grid">
-            {[
-                "Animals", "Art and Culture", "Education", "Engineering", "Environment",
-                "Health & Wellness", "Mathematics", "Science", "Social Justice",
-                "Sports and Fitness", "Technology"
-            ].map((interest) => (
+              {[
+                "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
+                "Environment", "Global – Locale Based", "Health & Disease", "Homeless", "Hunger & Poverty",
+                "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues"
+              ].map((cause) => (
                 <button
+                  key={cause}
+                  type="button"
+                  className={`interest-btn ${selectedCauses.includes(cause) ? 'selected' : ''}`}
+                  onClick={() => toggleCause(cause)}
+                >
+                  {selectedCauses.includes(cause) ? cause : `+ ${cause}`}
+                </button>
+              ))}
+            </div>
+          </div>
+          <textarea name="mission" placeholder="Mission Statement" onBlur={(e) => setMission(e.target.value)} required />
+          <div className="form-nav-buttons">
+            <button type="button" onClick={handlePreviousSlide}>Back</button>
+            <button type="submit">Next</button>
+          </div>
+        </form>
+      )}
+
+      {/* Slide for students to pick their interests and passions */}
+      {slide === 2 && usertype === "student" && (
+        <form className="form-registration" onSubmit={(e) => { e.preventDefault(); handleNextSlide(); }}>
+          <h2>What are your interests and passions?</h2>
+          <div className="interests-grid">
+            {[
+              "Animals", "Art and Culture", "Education", "Engineering", "Environment",
+              "Health & Wellness", "Mathematics", "Science", "Social Justice",
+              "Sports and Fitness", "Technology"
+            ].map((interest) => (
+              <button
                 key={interest}
                 type="button"
                 className={`interest-btn ${selectedInterests.includes(interest) ? 'selected' : ''}`}
                 onClick={() => toggleInterest(interest)}
-                >
+              >
                 {selectedInterests.includes(interest) ? interest : `+ ${interest}`}
-                </button>
+              </button>
             ))}
-            </div>
-            <div className="form-nav-buttons">
+          </div>
+          <div className="form-nav-buttons">
             <button type="button" onClick={handlePreviousSlide}>Back</button>
-            <button type="submit" className="complete-registration" onClick = {handleComplete}>Complete Registration</button>
-            </div>
+            <button type="submit">Next</button>
+          </div>
         </form>
-        )}
+      )}
 
+      {/* Slide for creating username and password */}
+      {slide === 3 && (
+        <form className="form-registration" onSubmit={(e) => { e.preventDefault(); handleComplete(); }}>
+          <h2>Create your account!</h2>
+          <input
+            name="username"
+            placeholder="Email"
+            onBlur={(e) => setUsername(e.target.value)}
+            required
+          />
+          <input
+            name="password"
+            type="password"
+            placeholder="Password"
+            onBlur={(e) => setPassword(e.target.value)}
+            required
+          />
+          <input
+            name="confirmPassword"
+            type="password"
+            placeholder="Confirm Password"
+            onBlur={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
+          {!passwordsMatch && (
+            <p style={{ color: 'red' }}>Passwords do not match. Please try again.</p>
+          )}
+          <div className="form-nav-buttons final-step-buttons">
+            <button type="button" onClick={handlePreviousSlide}>Back</button>
+            <button type="submit" className="complete-registration">Complete Registration</button>
+          </div>
+        </form>
+      )}
 
-
-
-    {slide === 3 && (
+      {slide === 4 && (
         <div className="redirect-message-registration">
-          <p>Redirecting to you login...</p>
+          <p>Redirecting to your login...</p>
         </div>
       )}
     </div>
