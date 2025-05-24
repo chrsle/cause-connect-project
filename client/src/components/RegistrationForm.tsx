@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import "../views/styles/registration.css";
-import { signup } from "../utils/user-utils";
+import { signup, login} from "../utils/user-utils";
+import {saveUserProfile} from "../utils/profile-utils";
 
 const Registration = () => {
   const [usertype, setUsertype] = useState<string | null>(null);
@@ -57,58 +58,83 @@ const Registration = () => {
   };
 
   const handleComplete = async () => {
-    // Ensure the passwords match
-    if (password !== confirmPassword) {
-      setPasswordsMatch(false);
+  if (password !== confirmPassword) {
+    setPasswordsMatch(false);
+    return;
+  }
+
+  if (!username || !password || !confirmPassword || !usertype) {
+    console.error("Missing required fields");
+    return;
+  }
+
+  setPasswordsMatch(true);
+
+  const registrationData = {
+    usertype,
+    fullname,
+    age,
+    school,
+    bio,
+    nonprofitName,
+    selectedCauses,
+    mission,
+    location,
+    selectedInterests,
+    username,
+    password,
+  };
+
+  console.log("Registration Data:", registrationData);
+
+  try {
+    const res = await signup(username, password, usertype);
+
+    if (!res.success) {
+      console.error("Registration failed:", res.message);
+      alert("Registration failed: " + res.message);
       return;
     }
 
-    if (!username || !password || !confirmPassword || !usertype) {
-        console.error("Missing required fields");
-        return;
-      }
-  
-    setPasswordsMatch(true); // reset the error if previously set
-  
-    // Prepare the registration payload
-    const registrationData = {
-      usertype,
-      fullname,
-      age,
-      school,
-      bio,
-      nonprofitName,
-      selectedCauses,
-      mission,
-      location,
-      selectedInterests,
-      username,
-      password,
-    };
-
-    console.log("Registration Data:", registrationData);
-  
-    try {
-      // Call signup utility function (assumes it returns a Promise)
-      const res = await signup(username, password, usertype);
-  
-      if (res.success) {
-        console.log("User registered successfully.");
-        setSlide(4);
-        // Optionally: redirect after delay
-        setTimeout(() => {
-          window.location.href = "/";
-        }, 2000);
-      } else {
-        // Handle failure (e.g., username taken)
-        console.error("Registration failed:", res.message);
-        alert("Registration failed: " + res.message);
-      }
-    } catch (error) {
-      console.error("Signup error:", error);
-      alert("An error occurred during registration. Please try again.");
+    const loginRes = await login(username, password);
+    if (!loginRes.success) {
+      alert("Signup succeeded, but login failed. Please log in manually.");
+      return;
     }
-  };
+
+    const profileData =
+      usertype === "student"
+        ? {
+            full_name: fullname,
+            age,
+            school,
+            bio,
+            interests: selectedInterests.join(", "),
+          }
+        : {
+            nonprofit_name: nonprofitName,
+            location,
+            category: selectedCauses.join(", "),
+            statement: mission,
+          };
+
+    try {
+      const profileRes = await saveUserProfile(profileData);
+      console.log("Profile saved:", profileRes);
+    } catch (err) {
+      console.error("Profile saving failed:", err);
+      alert("Account created, but saving your profile failed.");
+    }
+
+    setSlide(4);
+    setTimeout(() => {
+      window.location.href = "/";
+    }, 2000);
+  } catch (error) {
+    console.error("Signup error:", error);
+    alert("An error occurred during registration. Please try again.");
+  }
+};
   
 
   return (
@@ -148,7 +174,7 @@ const Registration = () => {
               {[
                 "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
                 "Environment", "Global – Locale Based", "Health & Disease", "Homeless", "Hunger & Poverty",
-                "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues"
+                "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", "Sports"
               ].map((cause) => (
                 <button
                   key={cause}
@@ -175,9 +201,9 @@ const Registration = () => {
           <h2>What are your interests and passions?</h2>
           <div className="interests-grid">
             {[
-              "Animals", "Art and Culture", "Education", "Engineering", "Environment",
-              "Health & Wellness", "Mathematics", "Science", "Social Justice",
-              "Sports and Fitness", "Technology"
+              "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
+                "Environment", "Global – Locale Based", "Health & Disease", "Homeless", "Hunger & Poverty",
+                "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", "Sports"
             ].map((interest) => (
               <button
                 key={interest}

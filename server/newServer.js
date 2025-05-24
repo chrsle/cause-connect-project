@@ -9,9 +9,9 @@ const { createClient } = require("@libsql/client");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
-const opportunitiesRouter = require('./src/routes/createEvents.js'); // adjust path if needed
-const reserveRouter = require('./src/routes/reserveEvents.js'); // adjust path if needed
-
+const opportunitiesRouter = require('./src/routes/createEvents.js');
+const reserveRouter = require('./src/routes/reserveEvents.js'); 
+const userRouter = require('./src/routes/profiles.js'); 
 
 // Middleware
 app.use(express.json());
@@ -23,7 +23,7 @@ app.use(cors({
 
 app.use('/api', opportunitiesRouter); 
 app.use('/api', reserveRouter);
-
+app.use('/api', userRouter);
 // Database connection
 const db = createClient({
   url: process.env.TURSO_DATABASE_URL,

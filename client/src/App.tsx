@@ -4,6 +4,8 @@ import Home from './views/home';
 import LandingPage from './views/landing-page';
 import OpportunitiesPage from './views/dummy';
 import VolunteerSignupPage from './views/dummy2';
+import ProfileEditPage from './views/dummy3';
+
 function App() {
   return (
     <Router>
@@ -14,6 +16,7 @@ function App() {
         <Route path="/landing-page" element={<LandingPage/>} />
         <Route path = "/opportunities" element={<OpportunitiesPage/>} />
         <Route path = "/volunteer-signup" element={<VolunteerSignupPage/>} />
+        <Route path = "/profile-edit" element={<ProfileEditPage/>} />
       </Routes>
     </Router>
   );
