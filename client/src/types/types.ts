@@ -13,6 +13,7 @@ export type Student = {
     bio: string;
     interests: string;
     email: string;
+    phone: string;
     upcoming_events: number;
     past_events: number;
 }
@@ -25,7 +26,10 @@ export type Organization = {
     category: string;
     statement: string;
     volunteers: string;
+    email: string;
 }
+
+export type EventStatus = "draft" | "upcoming" | "completed";
 
 export type Event = {
     id: number;
@@ -41,4 +45,5 @@ export type Event = {
     location: string;
     cause:string
     volunteers: string;
+    status: EventStatus;
 }

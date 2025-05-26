@@ -263,6 +263,7 @@ textarea {
   box-shadow: 0 2px 8px rgba(74, 144, 226, 0.2);
 }
 
+.back-button,
 .cancel-button {
   background-color: transparent;
   color: #64748b;

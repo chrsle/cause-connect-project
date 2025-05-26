@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import "../views/styles/eventCardCarousel.css";
 import { Event } from "../types/types";
 import EventCard from './eventCard';
+import DraftEventCard from './draftEventCard';
 
 interface EventCardCarouselProps {
   events: Event[];
   userType: "student" | "organization";
+  renderCard: (event: Event, userType: "student" | "organization") => React.ReactElement;
 }
 
-const EventCardCarousel: React.FC<EventCardCarouselProps> = ({ events, userType }) => {
+const EventCardCarousel: React.FC<EventCardCarouselProps> = ({ events, renderCard, userType }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const handlePrev = () => {
@@ -33,8 +35,8 @@ const EventCardCarousel: React.FC<EventCardCarouselProps> = ({ events, userType 
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
         >
           {events.map((event, index) => (
-            <div key={index} className="carousel-item">
-              <EventCard event={event}  userType={userType}/>
+            <div key={index} className="carousel-item">     
+              {renderCard(event, userType)}
             </div>
           ))}
         </div>

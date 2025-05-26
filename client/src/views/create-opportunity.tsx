@@ -2,7 +2,9 @@ import React, { useState, ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NavBar from '../components/navBar'; // Adjust path as needed
 import { dummyOrganization } from '../constants/dummyOrgs'; // Adjust path as needed
-import '../views/styles/create-opportunity.css'; // We'll create this CSS next
+import '../views/styles/create-opportunity.css'; 
+import { Event } from "../types/types";
+
 
 interface FormData {
   name: string;
@@ -91,11 +93,36 @@ function CreateEvent() {
     return isValid;
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+
+
+  const handleSubmit =  async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-  
+    
+    //to save a draft, but we replace '/api/save-draft' with the actual backedn endpoint
+    const saveDraft = async () => {
+      try {
+        const response = await fetch('/api/save-draft', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save draft');
+        }
+
+        console.log('Draft saved successfully');
+      } catch (error) {
+        console.error('Error saving draft:', error);
+        // Optionally show a message to the user
+      }
+};
+    
     if (currentStep === 'details') {
       if (validateForm()) {
+        await saveDraft(); //save draft before continuing
         setCurrentStep('review');
         window.scrollTo(0, 0); // Scroll to top when moving to the next step
       }
@@ -106,11 +133,12 @@ function CreateEvent() {
       // Final submission - send data to backend
       console.log('Publishing opportunity:', formData);
       // Redirect to confirmation page or dashboard
-      navigate('/my-events', { state: { success: true, message: 'Opportunity created successfully!' } });
+      navigate('/org-my-events', { state: { success: true, message: 'Opportunity created successfully!' } });
     }
 
     console.log('Submitted at step:', currentStep);
 
+    
   };
 
   const handleCancel = () => {
@@ -175,6 +203,7 @@ function CreateEvent() {
               name="date"
               value={formData.date}
               onChange={handleChange}
+              min={new Date().toISOString().split('T')[0]}  // 👈 Prevent past dates
               className={errors.date ? 'error' : ''}
             />
             {errors.date && <p className="error-message">{errors.date}</p>}

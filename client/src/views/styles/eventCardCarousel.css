@@ -9,8 +9,8 @@
   }
   
   .carousel-btn {
-    background-color: #1A83F8;
-    color: white;
+    background-color: white;
+    color: #1A83F8;
     border: none;
     padding: 10px 14px;
     font-size: 1.5rem;
@@ -21,7 +21,7 @@
   }
   
   .carousel-btn:disabled {
-    background-color: #1A83F8;
+    background-color: white;
     cursor: not-allowed;
   }
   

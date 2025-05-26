@@ -43,7 +43,7 @@ function OrgOpportunity(){
 
             <div className="landing-page-events">
                 <h2 className="header-events">Active Opportunities</h2>
-                <EventCardCarousel events={dummyEvents} userType="organization" />
+                <EventCardCarousel events={dummyEvents} userType="organization"  renderCard={(event, userType) => <EventCard event={event} userType={userType} />}/>
             </div>
 
             <div className="landing-page_new-opportunities">

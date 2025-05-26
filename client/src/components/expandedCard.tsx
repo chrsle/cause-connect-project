@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from "react-router-dom";
 import { Event } from "../types/types";
 import "../views/styles/eventCard.css";
 import "../views/styles/expandedEventCard.css";
@@ -17,6 +18,7 @@ const ExpandedCardPortal: React.FC<{
   const [editedEvent, setEditedEvent] = useState<Event>({ ...event });
   const [hasJoined, setHasJoined] = useState(false);
 
+  const navigate = useNavigate();
 
   if (!isOpen) return null;
 
@@ -89,7 +91,21 @@ const ExpandedCardPortal: React.FC<{
       <label htmlFor="body">Description</label>
       <textarea name="body" id="body" value={editedEvent.body} onChange={handleChange} rows={4} />
     </div>
+
+    <div className="expanded-card-action-buttons">
+      <button className="delete-button" onClick={() => {
+        if (window.confirm("Are you sure you want to delete this event?")) {
+          // Here you'd typically call a prop like onDelete(event.id)
+          console.log("Event deleted:", event.id);
+          onClose(); // Close the modal after deletion
+        }
+      }}>
+        Delete Event 
+      </button>
+    </div>
   </div>
+
+
             
           </>
         ) : (
@@ -105,7 +121,7 @@ const ExpandedCardPortal: React.FC<{
           </>
         )}
 
-        <div className="action-buttons">
+        <div className="expanded-card-action-buttons">
           {userType === "student" ? (
             !isPast ? (
               <button
@@ -126,9 +142,32 @@ const ExpandedCardPortal: React.FC<{
               <button className="expanded-card-cancel-button" onClick={() => setIsEditing(false)}>Cancel</button>
             </>
           ) : (
-            <button className="expanded-card-edit-button" onClick={() => setIsEditing(true)}>Edit Event</button>
+            <>
+            {event.status === "draft" ? (
+              <button className="expanded-card-edit-button" onClick={() => (window.location.href = 'create-opportunity')}>Complete Draft</button>
+            ) : (
+              <>
+                <button className="expanded-card-edit-button" onClick={() => setIsEditing(true)}>Edit Event</button>
+
+               <button
+                  className="expanded-card-volunteers-button"
+                  onClick={() => navigate(`/event/${event.id}/volunteers`)}
+                >
+                  View Volunteers
+                </button>
+              </>
+              
+            )}
+            </>    
           )
-        ) : null }
+        ) : (
+          <button
+                className="expanded-card-volunteers-button"
+                onClick={() => navigate(`/event/${event.id}/volunteers-page`)}
+              >
+                View Volunteers
+              </button>
+        ) }
         </div>
 
       </div>

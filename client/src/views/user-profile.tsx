@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import "./styles/userProfile.css"; // Using your existing CSS file structure
+import React, { useState, useRef } from "react";
+import "./styles/userProfile.css";
 import avatar from "../default-avatar.png";
 import { dummyStudent } from "../constants/dummyStudent";
 import NavBar from "../components/navBar";
@@ -11,6 +11,7 @@ function UserProfile() {
   const [selectedInterests, setSelectedInterests] = useState(
     dummyStudent.interests.split(", ")
   );
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const availableInterests = [
     "Animals",
@@ -26,7 +27,6 @@ function UserProfile() {
     "Technology"
   ];
 
-  // Profile picture upload functionality
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -37,10 +37,17 @@ function UserProfile() {
           setImageUrl(result);
         }
       };
+      reader.onerror = () => {
+        console.error("Error reading file");
+      };
       reader.readAsDataURL(file);
+      
+      // Reset the input after selection
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
-
  // Interest toggling functionality
  const toggleInterest = (interest: string) => {
     if (selectedInterests.includes(interest)) {
@@ -69,13 +76,14 @@ function UserProfile() {
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
           >
-            <img src={imageUrl} alt="Profile" className="profile-pic" />
+            <img src={imageUrl} alt="Profile" className="user-profile-profile-pic" />
             
             {isHovering && (
-              <div className="image-overlay">
-                <label className="camera-button">
+              <div className="user-profile-image-overlay">
+                <label className="user-profile-camera-button">
                   <span className="camera-icon">📷</span>
                   <input 
+                    ref={fileInputRef}
                     type="file" 
                     className="hidden-input" 
                     accept="image/*" 
@@ -142,7 +150,7 @@ function UserProfile() {
 
             <div className="info-item">
               <h2 className="info-label">
-                <span className="info-icon">💼</span> School
+                <span className="info-icon">💼</span> Location
               </h2>
               {editMode ? (
                 <input 
@@ -208,7 +216,7 @@ function UserProfile() {
                   defaultValue="I'm a student passionate about learning and connecting with others in my field."
                 />
               ) : (
-                <p className="user-bio">I'm a student passionate about learning and connecting with others in my field.</p>
+                <p className="user-bio">{dummyStudent.bio}</p>
               )}
             </div>
           </div>

@@ -9,6 +9,7 @@ export const dummyStudent = {
     bio: "Boss",
     interests: "Sports",
     email: "stevenvu2468@gmail.com",
+    phone: "123-456-7890",
     upcoming_events: 0,
     past_events: 0,
 }

@@ -10,4 +10,5 @@ export const dummyOrganization = {
     category: "sports",
     statement: "chicken",
     volunteers: 0,
+    email: "Kicksforsoccer@gmail.com"
 }

@@ -37,7 +37,7 @@ const LandingPage = () => {
 
         <div className="landing-page-events">
           <h2 className="header-events">Dive Deeper into your Interests</h2>
-          <EventCardCarousel events={dummyEvents} userType="student"/>
+          <EventCardCarousel events={dummyEvents} userType="student"  renderCard={(event, userType) => <EventCard event={event} userType={userType} />}/>
         </div>
 
         <div className="landing-page-explore">

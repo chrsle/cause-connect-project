@@ -5,6 +5,7 @@ import { dummyEvents } from "../constants/dummyEvents";
 import { Event } from "../types/types";
 import LongEventCardCarousel from "../components/longEventCardCarousel";
 import "./styles/UserMyEvents.css";
+import EventCard from "../components/eventCard";
 import EventCardGrid from "../components/eventCardGrid";
 import { useState } from "react";
 
@@ -39,7 +40,7 @@ function MyEvents() {
             <div className="landing-page-events">
                 <h2 className="header-events">Upcoming Opportunities</h2>
                 <p className="number_of_events"> You have {dummyStudent.upcoming_events} upcoming events</p>
-                <LongEventCardCarousel events={dummyEvents} userType="student" />
+                <EventCardCarousel events={dummyEvents} userType="student"  renderCard={(event, userType) => <EventCard event={event} userType={userType} />}/>
 
             </div>
 
