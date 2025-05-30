@@ -52,10 +52,10 @@ app.get("/", (req, res) => {
 // Signup
 app.post("/api/signup", async (req, res) => {
   const { username, password, usertype } = req.body;
-  console.log("[SIGNUP] Request body:", req.body);
-  console.log("[SIGNUP] Usertype:", usertype);
-  console.log("[SIGNUP] Username:", username);
-  console.log("[SIGNUP] Password:", password ? password : "undefined");
+  // console.log("[SIGNUP] Request body:", req.body);
+  // console.log("[SIGNUP] Usertype:", usertype);
+  // console.log("[SIGNUP] Username:", username);
+  // console.log("[SIGNUP] Password:", password ? password : "undefined");
   if (!username) return res.status(400).send("You must provide a username.");
   if (username.length < 3) return res.status(400).send("Username must be at least 3 characters.");
   if (!/^[a-zA-Z0-9]+$/.test(username)) {
@@ -97,7 +97,7 @@ app.post("/api/signup", async (req, res) => {
 // Login
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
-  console.log("[LOGIN] Request body:", req.body);
+  // console.log("[LOGIN] Request body:", req.body);
 
   try {
     const result = await db.execute({

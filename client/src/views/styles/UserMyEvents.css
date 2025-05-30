@@ -1,0 +1,61 @@
+.landing-page {
+    background-color: white;
+}
+
+.landing-page-header {
+    text-align: center;
+    padding: 40px 20px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  
+  .landing-page__greeting {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+  }
+  
+  .landing-page__welcome {
+    font-size: 1.2rem;
+    color: #333;
+    margin-bottom: 40px;
+  }
+  
+  .highlight {
+    color: #1A83F8;
+    font-weight: bold;
+  }
+  
+  .my-events-events{
+    background-color:white;
+
+  }
+
+  .header-events{
+    background-color:#1A83F8;
+    color: white;
+    align-content: center;
+    text-decoration: underline;
+  }
+
+
+  .header-pastEvents{
+    background-color:white;
+    color: white;
+    align-content: center;
+    text-decoration: underline;
+    padding-top: 15px;
+    padding-bottom: 15px;
+  }
+
+  .my-events-pastEvents{
+    background-color:white;
+  }
+
+  .number_of_events{
+    display: flex;
+    justify-content: center;
+    margin: auto;
+    color:white;
+    font-style: italic;
+  }
+

@@ -1,0 +1,75 @@
+/* Add this to your CSS file (e.g., orgOpportunity.css) */
+
+.create-opportunity-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #4a90e2, #356ac3);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 14px 22px;
+  margin: 24px 0;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.create-opportunity-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(74, 144, 226, 0.4);
+  background: linear-gradient(135deg, #5a9ae6, #4578d1);
+}
+
+.create-opportunity-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+}
+
+.create-button-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.create-button-icon {
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.2);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.create-button-text {
+  transition: all 0.3s ease;
+}
+
+.create-opportunity-button:hover .create-button-icon {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+.landing-page_new-opportunities {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.past-opportunities{
+  background-color: white;
+}
+
+.header-pastOpps{
+  color: #1A83F8;
+  padding: 20px;
+  text-align: center;
+}
