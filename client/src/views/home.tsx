@@ -20,7 +20,7 @@ const Home = () => {
 
     if (res.success) {
       // You can redirect, fetch session info, or show a success message
-      window.location.href = "/landing-page"; // example route
+      window.location.href = res.nextRoute || "/"; // example route
     } else {
       setError(res.message);
       console.error("Login error:", res.message);

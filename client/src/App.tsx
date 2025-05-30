@@ -10,6 +10,7 @@ import MyEvents from './views/user-my-events';
 import OrgMyEvents from './views/org-my-events';
 import VolunteerPage from './views/volunteers-page';
 import SettingsPage from './views/settings-page';
+
 import OpportunitiesPage from './views/dummy';
 import VolunteerSignupPage from './views/dummy2';
 import ProfileEditPage from './views/dummy3';

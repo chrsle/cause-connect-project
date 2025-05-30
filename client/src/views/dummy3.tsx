@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getUserProfile, updateUserProfile } from '../utils/profile-utils'; // import the utils file you created
 
 type StudentProfile = {
-  full_name: string;
+  full_name: string; //steven
   age: number;
   school: string;
   bio: string;

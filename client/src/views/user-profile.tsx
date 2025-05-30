@@ -4,6 +4,7 @@ import avatar from "../default-avatar.png";
 import { dummyStudent } from "../constants/dummyStudent";
 import NavBar from "../components/navBar";
 
+// 
 function UserProfile() {
   const [imageUrl, setImageUrl] = useState(avatar);
   const [isHovering, setIsHovering] = useState(false);
@@ -11,6 +12,7 @@ function UserProfile() {
   const [selectedInterests, setSelectedInterests] = useState(
     dummyStudent.interests.split(", ")
   );
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const availableInterests = [
