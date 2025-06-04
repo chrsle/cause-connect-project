@@ -155,6 +155,10 @@ app.post("/api/login", async (req, res) => {
 });
 
 
+
+
+
+
 app.get("/api/me", authenticateToken, async (req, res) => {
   const { id, userType } = req.user;  // From the JWT token
 

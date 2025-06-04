@@ -29,7 +29,6 @@ const VolunteerPage: React.FC = () => {
     endTime: "1:00 PM",
     location: "Central Park",
     cause: "Environmental",
-    volunteers: "0",
     status: "upcoming"
   });
 
@@ -76,20 +75,19 @@ const VolunteerPage: React.FC = () => {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-const toggleSelect = (id: string) => {
-  setSelectedIds(prev => {
-    const updated = new Set(prev);
-    updated.has(id) ? updated.delete(id) : updated.add(id);
-    return updated;
-  });
-};
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const updated = new Set(prev);
+      updated.has(id) ? updated.delete(id) : updated.add(id);
+      return updated;
+    });
+  };
 
-const toggleSelectAll = () => {
-  const allVisibleIds = filteredVolunteers.map(v => v.id);
-  const allSelected = allVisibleIds.every(id => selectedIds.has(id));
-  setSelectedIds(allSelected ? new Set() : new Set(allVisibleIds));
-};
-
+  const toggleSelectAll = () => {
+    const allVisibleIds = filteredVolunteers.map(v => v.id);
+    const allSelected = allVisibleIds.every(id => selectedIds.has(id));
+    setSelectedIds(allSelected ? new Set() : new Set(allVisibleIds));
+  };
 
   // Filter volunteers based on current filter and search term
   const filteredVolunteers = volunteers.filter(volunteer => {
@@ -156,12 +154,12 @@ const toggleSelectAll = () => {
                 
                 <div className="volunteer-stats">
                   <div className="stat-item">
-                    <span className="stat-label">Volunteers Needed</span>
-                    <span className="stat-value">{event.volunteers}</span>
+                    <span className="stat-label">Volunteers Signed Up</span>
+                    <span className="stat-value">{volunteers.filter(v => v.status === 'approved').length}</span>
                   </div>
                   <div className="stat-item">
-                    <span className="stat-label">Signed Up</span>
-                    <span className="stat-value">{event.volunteers}</span>
+                    <span className="stat-label">Pending Applications</span>
+                    <span className="stat-value">{volunteers.filter(v => v.status === 'pending').length}</span>
                   </div>
                 </div>
               </div>
@@ -241,8 +239,12 @@ const toggleSelectAll = () => {
           <div className="volunteer-list-section">
             <div className="volunteer-list-header">
               <div className="select-all">
-                <input type="checkbox" id="select-all" checked={filteredVolunteers.length > 0 && filteredVolunteers.every(v => selectedIds.has(v.id))} 
-  onChange={toggleSelectAll} />
+                <input 
+                  type="checkbox" 
+                  id="select-all" 
+                  checked={filteredVolunteers.length > 0 && filteredVolunteers.every(v => selectedIds.has(v.id))} 
+                  onChange={toggleSelectAll} 
+                />
                 <label htmlFor="select-all">Select All</label>
               </div>
               <div className="list-headers">
@@ -260,10 +262,14 @@ const toggleSelectAll = () => {
                 filteredVolunteers.map(volunteer => (
                   <div key={volunteer.id} className="volunteer-row">
                     <div className="select-volunteer">
-                      <input type="checkbox" id={`select-${volunteer.id}`} checked={selectedIds.has(volunteer.id)}  onChange={() => toggleSelect(volunteer.id)} />
+                      <input 
+                        type="checkbox" 
+                        id={`select-${volunteer.id}`} 
+                        checked={selectedIds.has(volunteer.id)}  
+                        onChange={() => toggleSelect(volunteer.id)} 
+                      />
                     </div>
                     
-                    {/* This is where you would insert your ProfileCard component */}
                     <div className="volunteer-info">
                       <div className="volunteer-name">{volunteer.name}</div>
                       <div className="volunteer-email">{volunteer.email}</div>
@@ -273,13 +279,15 @@ const toggleSelectAll = () => {
                         {volunteer.status.charAt(0).toUpperCase() + volunteer.status.slice(1)}
                       </div>
                       <div className="volunteer-actions">
-                        <button className="action-icon view"
-onClick={() => (window.location.href = 'user-profile')}>
-                           <i className="material-icons">visibility</i>
+                        <button 
+                          className="action-icon view"
+                          onClick={() => (window.location.href = 'user-profile')}
+                        >
+                          <i className="material-icons">visibility</i>
                         </button>
                         <button className="action-icon message">
                           <i className="material-icons">sms</i>
-                                   </button>
+                        </button>
                         <button className="action-icon more">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" 
@@ -306,23 +314,6 @@ onClick={() => (window.location.href = 'user-profile')}>
           <div className="pagination-section">
             <div className="showing-results">
               Showing {filteredVolunteers.length} of {volunteers.length} volunteers
-            </div>
-            <div className="pagination-controls">
-              <button className="pagination-button prev" disabled>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Previous
-              </button>
-              <div className="pagination-pages">
-                <button className="page-number active">1</button>
-              </div>
-              <button className="pagination-button next" disabled>
-                Next
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
             </div>
           </div>
         </div>

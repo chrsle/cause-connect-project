@@ -53,9 +53,62 @@ router.get('/opportunities', authenticate, async (req, res) => {
   try {
     const query = `SELECT * FROM opportunities WHERE user_id = ?`;
     const opportunities = await db.execute(query, [userid]);
-    //console.log('Opportunities:', opportunities);
-    res.json(opportunities.rows);
+    
+    // Helper function to format time to PST with AM/PM
+    const formatTimeToPST = (timeString) => {
+      if (!timeString) return '';
+      
+      const [hours, minutes] = timeString.split(':').map(Number);
+      const date = new Date();
+      date.setHours(hours, minutes, 0, 0);
+      
+      return date.toLocaleTimeString('en-US', {
+        timeZone: 'America/Los_Angeles',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    };
+    
+    // Helper function to format date without timezone issues
+    const formatDateWithoutTimezone = (dateString) => {
+      if (!dateString) return '';
+      
+      // Parse the date as local date (avoid timezone conversion)
+      const [year, month, day] = dateString.split('-').map(Number);
+      const date = new Date(year, month - 1, day); // month is 0-indexed
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    };
+    
+    // Map the database fields to match frontend Event type
+const mappedEvents = opportunities.rows.map(event => ({
+    id: event.id,
+    title: event.title,
+    organization: event.nonprofit_name,
+    body: event.description,
+    createdDate: event.created_at || new Date().toISOString(),
+    author_id: event.user_id,
+    startDate: event.date,
+    startTime: event.time,
+    endDate: event.end_date || event.date,
+    endTime: event.end_time || "",
+    location: event.location,
+    cause: event.cause || "",
+    status: "upcoming",
+    formattedDate: formatDateWithoutTimezone(event.date),
+    formattedTime: formatTimeToPST(event.time),
+    rawTime: event.time
+    // Removed: volunteers: event.volunteers || "",
+}));
+    
+    res.json(mappedEvents);
   } catch (err) {
+    console.error('Error fetching opportunities:', err);
     res.status(500).json({ error: 'Database error.'});
   }
 });
@@ -157,6 +210,7 @@ router.put('/opportunities/:id', authenticate, async (req, res) => {
     res.status(500).json({ error: 'Database error.' });
   }
 });
+
 
 // DELETE: Delete an opportunity
 router.delete('/opportunities/:id', authenticate, async (req, res) => {

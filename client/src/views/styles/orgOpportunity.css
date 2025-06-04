@@ -1,4 +1,3 @@
-/* Add this to your CSS file (e.g., orgOpportunity.css) */
 
 .create-opportunity-button {
   display: flex;
@@ -64,12 +63,35 @@
   margin: 20px 0;
 }
 
-.past-opportunities{
+.past-opportunities {
   background-color: white;
 }
 
-.header-pastOpps{
+.header-pastOpps {
   color: #1A83F8;
   padding: 20px;
   text-align: center;
+}
+
+.no-events-message {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  margin: 2rem 0;
+  padding: 2rem;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border: 1px dashed #ddd;
+}
+
+.number_of_events {
+  color: #666;
+  font-size: 16px;
+  margin: 10px 0;
+  padding: 10px 20px;
+  text-align: center;
+  font-weight: 500;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-radius: 6px;
+  border-left: 4px solid #1A83F8;
 }

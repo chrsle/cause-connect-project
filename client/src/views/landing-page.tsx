@@ -1,51 +1,64 @@
-import React, { useState,useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import NavBar from "../components/navBar";
 import { Event } from "../types/types";
 import EventCard from "../components/eventCard";
 import EventCardCarousel from "../components/eventCardCarousel";
-import { dummyEvents } from "../constants/dummyEvents";
 import { dummyStudent } from "../constants/dummyStudent";
 import "./styles/landing-page.css";
 import EventCardGrid from "../components/eventCardGrid";
-
-
+import { getAllOpportunities } from "../utils/events-utils";
 
 const LandingPage = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [userData, setUserData] = useState<any>(null);
+  const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch("/api/me", {
+        // Fetch user data
+        const userRes = await fetch("/api/me", {
           method: "GET",
           credentials: "include",
         });
 
-        if (!res.ok) {
-          throw new Error("Failed to load user info");
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setUserData(userData);
         }
 
-        const data = await res.json();
-        setUserData(data);
+        // Fetch all events
+        const eventsData = await getAllOpportunities();
+        setEvents(eventsData);
       } catch (err: any) {
-        console.error("Error fetching user data:", err);
+        console.error("Error fetching data:", err);
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUserData();
+    fetchData();
   }, []);
 
   // Filter events based on search query
-  const filteredEvents = dummyEvents.filter(event =>
+  const filteredEvents = events.filter(event =>
     event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     event.location.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="landing-page">
+        <NavBar userType="student"/>
+        <div className="landing-page__content">
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="landing-page">
@@ -53,7 +66,7 @@ const LandingPage = () => {
       <div className="landing-page__content">
         <div className="landing-page-header">
           <h1 className="landing-page__greeting">
-            Hello, <span className="highlight">{dummyStudent.full_name}</span>
+            Hello, <span className="highlight">{userData?.profile?.full_name || dummyStudent.full_name}</span>
           </h1>
           <p className="landing-page__welcome">
             Welcome back to <span className="highlight"> your</span> platform for{" "}
@@ -65,7 +78,15 @@ const LandingPage = () => {
 
         <div className="landing-page-events">
           <h2 className="header-events">Dive Deeper into your Interests</h2>
-          <EventCardCarousel events={dummyEvents} userType="student"  renderCard={(event, userType) => <EventCard event={event} userType={userType} />}/>
+          {events.length > 0 ? (
+            <EventCardCarousel 
+              events={events} 
+              userType="student"  
+              renderCard={(event, userType) => <EventCard event={event} userType={userType} />}
+            />
+          ) : (
+            <p>No events available at this time.</p>
+          )}
         </div>
 
         <div className="landing-page-explore">
@@ -81,7 +102,6 @@ const LandingPage = () => {
             />
           </div>
 
-         
           <EventCardGrid events={filteredEvents} userType="student"/>
         </div>
       </div>

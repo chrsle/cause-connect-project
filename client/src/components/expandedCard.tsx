@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from "react-router-dom";
 import { Event } from "../types/types";
+import { updateOpportunity, deleteOpportunity, getOrganizationProfile } from "../utils/events-utils";
 import "../views/styles/eventCard.css";
 import "../views/styles/expandedEventCard.css";
-
-
 
 const ExpandedCardPortal: React.FC<{
   isOpen: boolean;
@@ -13,10 +12,13 @@ const ExpandedCardPortal: React.FC<{
   event: Event;
   userType: "student" | "organization";
   isPast: boolean;
-}> = ({ isOpen, onClose, event, userType, isPast }) => {
+  onEventUpdated?: () => void;
+}> = ({ isOpen, onClose, event, userType, isPast, onEventUpdated }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedEvent, setEditedEvent] = useState<Event>({ ...event });
   const [hasJoined, setHasJoined] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
@@ -25,17 +27,60 @@ const ExpandedCardPortal: React.FC<{
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setEditedEvent(prev => ({ ...prev, [name]: value }));
+    setError(null);
   };
 
-  const handleSave = () => {
-    console.log("Updated event:", editedEvent);
-    setIsEditing(false);
-    // Here you'd typically call a prop like onSave(editedEvent)
+  const handleSave = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const profile = await getOrganizationProfile();
+      
+      await updateOpportunity(
+        editedEvent.id,
+        profile.nonprofit_name,
+        editedEvent.title,
+        editedEvent.body,
+        editedEvent.startDate,
+        editedEvent.rawTime || editedEvent.startTime,
+        editedEvent.location
+      );
+      
+      setIsEditing(false);
+      onEventUpdated?.();
+      onClose();
+    } catch (error) {
+      console.error('Error updating event:', error);
+      setError('Failed to update event. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleJoinEvent =() => {
-    //will check if they actually successfully joined the event
-  }
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this event? This action cannot be undone.")) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await deleteOpportunity(event.id);
+      onEventUpdated?.();
+      onClose();
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      setError('Failed to delete event. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleJoinEvent = () => {
+    setHasJoined(true);
+  };
 
   return createPortal(
     <>
@@ -45,77 +90,116 @@ const ExpandedCardPortal: React.FC<{
           <i className="material-icons">close</i>
         </button>
 
+        {error && (
+          <div className="error-message" style={{ 
+            background: '#fee', 
+            color: '#c33', 
+            padding: '10px', 
+            borderRadius: '4px', 
+            marginBottom: '15px' 
+          }}>
+            {error}
+          </div>
+        )}
+
         {isEditing ? (
           <>
             <div className="expanded-card-editing">
               <div className="form-group">
                 <label htmlFor="title">Title</label>
-                <input name="title" id="title" value={editedEvent.title} onChange={handleChange} />
+                <input 
+                  name="title" 
+                  id="title" 
+                  value={editedEvent.title} 
+                  onChange={handleChange} 
+                  disabled={isLoading}
+                />
               </div>
 
               <div className="form-group">
                 <label htmlFor="organization">Organization</label>
-                <input name="organization" id="organization" value={editedEvent.organization} onChange={handleChange} />
+                <input 
+                  name="organization" 
+                  id="organization" 
+                  value={editedEvent.organization} 
+                  onChange={handleChange} 
+                  disabled={true}
+                  style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+                />
               </div>
 
-    <div className="form-row">
-      <div className="form-group">
-        <label htmlFor="startDate">Start Date</label>
-        <input type="date" name="startDate" id="startDate" value={editedEvent.startDate} onChange={handleChange} />
-      </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="startDate">Date</label>
+                  <input 
+                    type="date" 
+                    name="startDate" 
+                    id="startDate" 
+                    value={editedEvent.startDate} 
+                    onChange={handleChange} 
+                    disabled={isLoading}
+                  />
+                </div>
 
-      <div className="form-group">
-        <label htmlFor="endDate">End Date</label>
-        <input type="date" name="endDate" id="endDate" value={editedEvent.endDate} onChange={handleChange} />
-      </div>
-    </div>
+                <div className="form-group">
+                  <label htmlFor="startTime">Time</label>
+                  <input 
+                    type="time" 
+                    name="startTime" 
+                    id="startTime" 
+                    value={editedEvent.rawTime || editedEvent.startTime} 
+                    onChange={(e) => {
+                      setEditedEvent(prev => ({ 
+                        ...prev, 
+                        startTime: e.target.value,
+                        rawTime: e.target.value 
+                      }));
+                    }}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
 
-    <div className="form-row">
-      <div className="form-group">
-        <label htmlFor="startTime">Start Time</label>
-        <input type="time" name="startTime" id="startTime" value={editedEvent.startTime} onChange={handleChange} />
-      </div>
+              <div className="form-group">
+                <label htmlFor="location">Location</label>
+                <input 
+                  name="location" 
+                  id="location" 
+                  value={editedEvent.location} 
+                  onChange={handleChange} 
+                  disabled={isLoading}
+                />
+              </div>
 
-      <div className="form-group">
-        <label htmlFor="endTime">End Time</label>
-        <input type="time" name="endTime" id="endTime" value={editedEvent.endTime} onChange={handleChange} />
-      </div>
-    </div>
+              <div className="form-group">
+                <label htmlFor="body">Description</label>
+                <textarea 
+                  name="body" 
+                  id="body" 
+                  value={editedEvent.body} 
+                  onChange={handleChange} 
+                  rows={4} 
+                  disabled={isLoading}
+                />
+              </div>
 
-    <div className="form-group">
-      <label htmlFor="location">Location</label>
-      <input name="location" id="location" value={editedEvent.location} onChange={handleChange} />
-    </div>
-
-    <div className="form-group">
-      <label htmlFor="body">Description</label>
-      <textarea name="body" id="body" value={editedEvent.body} onChange={handleChange} rows={4} />
-    </div>
-
-    <div className="expanded-card-action-buttons">
-      <button className="delete-button" onClick={() => {
-        if (window.confirm("Are you sure you want to delete this event?")) {
-          // Here you'd typically call a prop like onDelete(event.id)
-          console.log("Event deleted:", event.id);
-          onClose(); // Close the modal after deletion
-        }
-      }}>
-        Delete Event 
-      </button>
-    </div>
-  </div>
-
-
-            
+              <div className="expanded-card-action-buttons">
+                <button 
+                  className="delete-button" 
+                  onClick={handleDelete}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Deleting...' : 'Delete Event'}
+                </button>
+              </div>
+            </div>
           </>
         ) : (
           <>
             <h2 className="event-card__title">{event.title}</h2>
             <p><span className="event-card_label">Organization: </span>{event.organization}</p>
-            <p><span className="event-card_label">Start Date: </span>{event.startDate}</p>
-            <p><span className="event-card_label">End Date: </span>{event.endDate}</p>
-            <p><span className="event-card_label">Start Time: </span>{event.startTime}</p>
-            <p><span className="event-card_label">End Time: </span>{event.endTime}</p>
+            <p><span className="event-card_label">Date: </span>{event.formattedDate || event.startDate}</p>
+            <p><span className="event-card_label">Time: </span>{event.formattedTime || event.startTime}</p>
             <p><span className="event-card_label">Location: </span>{event.location}</p>
             <p><span className="event-card_label">Description: </span>{event.body}</p>
           </>
@@ -126,50 +210,54 @@ const ExpandedCardPortal: React.FC<{
             !isPast ? (
               <button
                 className="expanded-card-join-event-button"
-                onClick={() => {
-                console.log("Joined event:", event.title);
-                setHasJoined(true); // <-- triggers UI update
-              }}
+                onClick={handleJoinEvent}
               >
                 {hasJoined ? "Successfully Joined!" : "Join Event"}
               </button>
             ) : null
-            
           ) : !isPast ? (
-          isEditing ? (
-            <>
-              <button className="expanded-card-save-button"onClick={handleSave}>Save</button>
-              <button className="expanded-card-cancel-button" onClick={() => setIsEditing(false)}>Cancel</button>
-            </>
-          ) : (
-            <>
-            {event.status === "draft" ? (
-              <button className="expanded-card-edit-button" onClick={() => (window.location.href = 'create-opportunity')}>Complete Draft</button>
-            ) : (
+            isEditing ? (
               <>
-                <button className="expanded-card-edit-button" onClick={() => setIsEditing(true)}>Edit Event</button>
-
-               <button
-                  className="expanded-card-volunteers-button"
-                  onClick={() => navigate(`/event/${event.id}/volunteers`)}
+                <button 
+                  className="expanded-card-save-button" 
+                  onClick={handleSave}
+                  disabled={isLoading}
                 >
-                  View Volunteers
+                  {isLoading ? 'Saving...' : 'Save'}
+                </button>
+                <button 
+                  className="expanded-card-cancel-button" 
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditedEvent({ ...event });
+                    setError(null);
+                  }}
+                  disabled={isLoading}
+                >
+                  Cancel
                 </button>
               </>
-              
-            )}
-            </>    
-          )
-        ) : (
-          <button
-                className="expanded-card-volunteers-button"
-                onClick={() => navigate(`/event/${event.id}/volunteers-page`)}
-              >
-                View Volunteers
-              </button>
-        ) }
+            ) : (
+              <>
+                {event.status === "draft" ? (
+                  <button 
+                    className="expanded-card-edit-button" 
+                    onClick={() => (window.location.href = 'create-opportunity')}
+                  >
+                    Complete Draft
+                  </button>
+                ) : (
+                  <button 
+                    className="expanded-card-edit-button" 
+                    onClick={() => setIsEditing(true)}
+                  >
+                    Edit Event
+                  </button>
+                )}
+              </>    
+            )
+          ) : null}
         </div>
-
       </div>
     </>,
     document.body

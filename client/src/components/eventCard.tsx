@@ -9,9 +9,10 @@ import ExpandedCardPortal from "./expandedCard"
 interface EventCardProps {
   event: Event;
   userType: "student" | "organization";
+  onEventUpdated?: () => void; // Added this prop
 }
 
-const EventCard: React.FC<EventCardProps> = ({ event, userType }) => {
+const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }) => {
   const [isOpen, setIsOpen] = useState(false);
   
   // Prevent body scrolling when modal is open
@@ -27,9 +28,17 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType }) => {
     };
   }, [isOpen]);
 
-  // Format date for display
+  // Format date for display WITHOUT timezone conversion
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Use the formatted date from backend if available, otherwise format safely
+    if (event.formattedDate && dateString === event.startDate) {
+      return event.formattedDate;
+    }
+    
+    // Parse date without timezone conversion
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month is 0-indexed
+    
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
       day: 'numeric',
@@ -39,16 +48,35 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType }) => {
 
   // Format time for display
   const formatTime = (timeString: string) => {
+    // Use the formatted time from backend if available
+    if (event.formattedTime && timeString === event.startTime) {
+      return event.formattedTime;
+    }
     return timeString;
   };
 
-  // Check if event is happening today or soon
+  // Check if event is happening today or soon (fix timezone issue here too)
   const isUpcoming = () => {
-    const today = new Date();
-    const eventDate = new Date(event.startDate);
-    const diffTime = eventDate.getTime() - today.getTime();
+    const currentDateTime = new Date();
+    
+    // Parse event date without timezone conversion
+    const [year, month, day] = event.startDate.split('-').map(Number);
+    const eventDate = new Date(year, month - 1, day);
+    
+    // Parse and set the event time
+    const timeToUse = event.rawTime || event.startTime;
+    const [hours, minutes] = timeToUse.split(':').map(Number);
+    eventDate.setHours(hours, minutes, 0, 0);
+    
+    // Check if event datetime is in the future
+    const isInFuture = eventDate > currentDateTime;
+    
+    // Check if event is within the next 7 days
+    const diffTime = eventDate.getTime() - currentDateTime.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 7 && diffDays >= 0;
+    
+    // Show "Upcoming" badge only if event is in future AND within 7 days
+    return isInFuture && diffDays <= 7 && diffDays >= 0;
   };
 
   return (
@@ -129,7 +157,14 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType }) => {
         onClose={() => setIsOpen(false)}
         event={event}
         userType={userType}
-        isPast= {new Date(event.endDate) < new Date()}
+        isPast={(() => {
+          // Fix timezone issue in date comparison
+          const [year, month, day] = event.endDate.split('-').map(Number);
+          const eventEndDate = new Date(year, month - 1, day);
+          eventEndDate.setHours(23, 59, 59, 999); // End of day
+          return eventEndDate < new Date();
+        })()}
+        onEventUpdated={onEventUpdated} // Pass the callback
       />
     </>
   );

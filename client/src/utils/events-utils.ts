@@ -1,11 +1,7 @@
 const API_BASE = "http://localhost:5001/api";
 
-
-
 // Utility function to make API calls with authentication token
 const makeRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', data?: any) => {
-
-
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
@@ -29,6 +25,27 @@ const makeRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE
     return await response.json();
   } catch (error) {
     console.error('API request failed:', error);
+    throw error;
+  }
+};
+
+// Function to get the current organization's profile
+export const getOrganizationProfile = async () => {
+  try {
+    const data = await makeRequest(`${API_BASE}/me`, 'GET');
+    
+    // Check if user is a nonprofit and has profile data
+    if (data.user_type !== 'nonprofit') {
+      throw new Error('User is not a nonprofit organization');
+    }
+    
+    if (!data.profile) {
+      throw new Error('Nonprofit profile not found');
+    }
+    
+    return data.profile;
+  } catch (error) {
+    console.error('Error fetching organization profile:', error);
     throw error;
   }
 };
@@ -118,4 +135,3 @@ export const getNearbyOpportunities = async (location: string, radius: number = 
     throw error;
   }
 };
-

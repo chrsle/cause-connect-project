@@ -1,9 +1,10 @@
-//Definining types for the application
+//Defining types for the application
 export type User = {
     id: number;
     username: string;
     user_type: "student" | "organization";
 }
+
 export type Student = {
     id: number;
     user_id: number;
@@ -43,7 +44,9 @@ export type Event = {
     endDate: string;
     endTime: string;
     location: string;
-    cause:string
-    volunteers: string;
+    cause: string;
     status: EventStatus;
+    formattedDate?: string;
+    formattedTime?: string;
+    rawTime?: string;
 }
