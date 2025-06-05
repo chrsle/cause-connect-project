@@ -94,45 +94,37 @@ app.post("/api/signup", async (req, res) => {
   }
 });
 
-// Login
+// Login - FIXED
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
-  // console.log("[LOGIN] Request body:", req.body);
-
   try {
     const result = await db.execute({
       sql: "SELECT * FROM users WHERE username = ?",
       args: [email],
     });
-
     const user = result.rows[0];
     if (!user) return res.status(400).send("Invalid credentials");
-
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).send("Invalid credentials");
-
+    // FIX: Use username instead of email
     const token = jwt.sign(
-      { email: user.email, userType: user.user_type, id: user.id },
+      { username: user.username, userType: user.user_type, id: user.id }, 
       process.env.JWTSECRET,
       { expiresIn: "1h" }
     );
-
     res.cookie("token", token, {
       httpOnly: true,
       sameSite: "lax",
       secure: false,
     });
-
     const userType = user.user_type;
-
     let nextRoute = "";
-
     if (userType === "nonprofit") {
       const nonprofitProfile = await db.execute({
         sql: "SELECT 1 FROM nonprofit_profiles WHERE user_id = ?",
         args: [user.id],
       });
-      nextRoute =  "/organization-page";;
+      nextRoute = "/organization-page";
     } else if (userType === "student") {
       const studentProfile = await db.execute({
         sql: "SELECT interests FROM student_profiles WHERE user_id = ?",
@@ -142,7 +134,6 @@ app.post("/api/login", async (req, res) => {
     } else {
       return res.status(400).send("Unrecognized user type");
     }
-
     return res.json({
       success: true,
       userType,

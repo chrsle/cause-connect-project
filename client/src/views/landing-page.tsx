@@ -7,6 +7,7 @@ import { dummyStudent } from "../constants/dummyStudent";
 import "./styles/landing-page.css";
 import EventCardGrid from "../components/eventCardGrid";
 import { getAllOpportunities } from "../utils/events-utils";
+import { getUserProfile } from "../utils/profile-utils"; // Import the working function
 
 const LandingPage = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -18,15 +19,14 @@ const LandingPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch user data
-        const userRes = await fetch("/api/me", {
-          method: "GET",
-          credentials: "include",
-        });
-
-        if (userRes.ok) {
-          const userData = await userRes.json();
-          setUserData(userData);
+        // Use the working profile endpoint instead of /api/me
+        try {
+          const profileData = await getUserProfile();
+          console.log("Profile data received:", profileData);
+          setUserData(profileData);
+        } catch (profileError) {
+          console.error("Error fetching profile:", profileError);
+          setUserData(null);
         }
 
         // Fetch all events
@@ -72,7 +72,7 @@ const LandingPage = () => {
       <div className="landing-page__content">
         <div className="landing-page-header">
           <h1 className="landing-page__greeting">
-            Hello, <span className="highlight">{userData?.profile?.full_name || dummyStudent.full_name}</span>
+            Hello, <span className="highlight">{userData?.full_name || dummyStudent.full_name}</span>
           </h1>
           <p className="landing-page__welcome">
             Welcome back to <span className="highlight"> your</span> platform for{" "}
