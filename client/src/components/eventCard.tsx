@@ -9,11 +9,16 @@ import ExpandedCardPortal from "./expandedCard"
 interface EventCardProps {
   event: Event;
   userType: "student" | "organization";
-  onEventUpdated?: () => void; // Added this prop
+  onEventUpdated?: () => void;
 }
 
 const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }) => {
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Debug log to see what data we're getting
+  useEffect(() => {
+    console.log('EventCard received event data:', event);
+  }, [event]);
   
   // Prevent body scrolling when modal is open
   useEffect(() => {
@@ -28,56 +33,139 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
     };
   }, [isOpen]);
 
+  // Get the correct field value with fallbacks for different data structures
+  const getEventField = (field: string) => {
+    const fieldMappings: { [key: string]: string[] } = {
+      'startDate': ['startDate', 'date', 'event_date'],
+      'endDate': ['endDate', 'end_date'],
+      'startTime': ['startTime', 'time', 'event_time', 'rawTime'],
+      'endTime': ['endTime', 'end_time'],
+      'organization': ['organization', 'nonprofit_name', 'organizer'],
+      'description': ['body', 'description', 'event_description'],
+      'location': ['location', 'event_location'],
+      'title': ['title', 'name', 'event_name']
+    };
+
+    const possibleFields = fieldMappings[field] || [field];
+    
+    for (const fieldName of possibleFields) {
+      if (event[fieldName as keyof Event]) {
+        return event[fieldName as keyof Event];
+      }
+    }
+    
+    return null;
+  };
+
   // Format date for display WITHOUT timezone conversion
   const formatDate = (dateString: string) => {
-    // Use the formatted date from backend if available, otherwise format safely
-    if (event.formattedDate && dateString === event.startDate) {
+    // Safety check for undefined/null dateString
+    if (!dateString) {
+      return 'Date TBD';
+    }
+
+    // Use the formatted date from backend if available
+    if (event.formattedDate && dateString === getEventField('startDate')) {
       return event.formattedDate;
     }
     
-    // Parse date without timezone conversion
-    const [year, month, day] = dateString.split('-').map(Number);
-    const date = new Date(year, month - 1, day); // month is 0-indexed
-    
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
+    try {
+      // Parse date without timezone conversion
+      const [year, month, day] = dateString.split('-').map(Number);
+      const date = new Date(year, month - 1, day); // month is 0-indexed
+      
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'Invalid Date';
+    }
   };
 
   // Format time for display
-  const formatTime = (timeString: string) => {
-    // Use the formatted time from backend if available
-    if (event.formattedTime && timeString === event.startTime) {
-      return event.formattedTime;
+ // Format time for display - Convert from military to 12-hour format (alternative)
+const formatTime = (timeString: string) => {
+  // Safety check for undefined/null timeString
+  if (!timeString) {
+    return 'Time TBD';
+  }
+  // Use the formatted time from backend if available
+  if (event.formattedTime && timeString === getEventField('startTime')) {
+    return event.formattedTime;
+  }
+  try {
+    // Convert military time (HH:MM) to 12-hour format
+    const [hours, minutes] = timeString.split(':').map(Number);
+    
+    // Determine AM/PM
+    const period = hours >= 12 ? 'PM' : 'AM';
+    
+    // Convert to 12-hour format
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    
+    // Format minutes with leading zero if needed
+    const displayMinutes = minutes.toString().padStart(2, '0');
+    
+    return `${displayHours}:${displayMinutes} ${period}`;
+  } catch (error) {
+    console.error('Error formatting time:', timeString, error);
+    return timeString; // Return original if formatting fails
+  }
+};
+
+  // Check if event is happening today or soon
+  const isUpcoming = () => {
+    const startDate = getEventField('startDate') as string;
+    const startTime = getEventField('startTime') as string;
+    
+    // Safety checks for required fields
+    if (!startDate || !startTime) {
+      return false;
     }
-    return timeString;
+
+    try {
+      const currentDateTime = new Date();
+      
+      // Parse event date without timezone conversion
+      const [year, month, day] = startDate.split('-').map(Number);
+      const eventDate = new Date(year, month - 1, day);
+      
+      // Parse and set the event time
+      const timeToUse = event.rawTime || startTime;
+      if (!timeToUse) {
+        return false;
+      }
+      
+      const [hours, minutes] = timeToUse.split(':').map(Number);
+      eventDate.setHours(hours, minutes, 0, 0);
+      
+      // Check if event datetime is in the future
+      const isInFuture = eventDate > currentDateTime;
+      
+      // Check if event is within the next 7 days
+      const diffTime = eventDate.getTime() - currentDateTime.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      // Show "Upcoming" badge only if event is in future AND within 7 days
+      return isInFuture && diffDays <= 7 && diffDays >= 0;
+    } catch (error) {
+      console.error('Error checking if event is upcoming:', event, error);
+      return false;
+    }
   };
 
-  // Check if event is happening today or soon (fix timezone issue here too)
-  const isUpcoming = () => {
-    const currentDateTime = new Date();
-    
-    // Parse event date without timezone conversion
-    const [year, month, day] = event.startDate.split('-').map(Number);
-    const eventDate = new Date(year, month - 1, day);
-    
-    // Parse and set the event time
-    const timeToUse = event.rawTime || event.startTime;
-    const [hours, minutes] = timeToUse.split(':').map(Number);
-    eventDate.setHours(hours, minutes, 0, 0);
-    
-    // Check if event datetime is in the future
-    const isInFuture = eventDate > currentDateTime;
-    
-    // Check if event is within the next 7 days
-    const diffTime = eventDate.getTime() - currentDateTime.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    // Show "Upcoming" badge only if event is in future AND within 7 days
-    return isInFuture && diffDays <= 7 && diffDays >= 0;
-  };
+  // Get display values with fallbacks
+  const displayTitle = getEventField('title') as string || 'Untitled Event';
+  const displayStartDate = getEventField('startDate') as string;
+  const displayEndDate = getEventField('endDate') as string;
+  const displayStartTime = getEventField('startTime') as string;
+  const displayEndTime = getEventField('endTime') as string;
+  const displayLocation = getEventField('location') as string || 'Location TBD';
+  const displayOrganization = getEventField('organization') as string;
+  const displayDescription = getEventField('description') as string;
 
   return (
     <>
@@ -92,7 +180,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
           
           {/* Event Title */}
           <div className="event-header">
-            <h2 className="event-card__title">{event.title}</h2>
+            <h2 className="event-card__title">{displayTitle}</h2>
           </div>
 
           {/* Date and Time Section */}
@@ -101,13 +189,13 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
               <label className="datetime-label">📅 Date</label>
               <div className="datetime-content">
                 <span className="event-card__startdate">
-                  {formatDate(event.startDate)}
+                  {formatDate(displayStartDate)}
                 </span>
-                {event.startDate !== event.endDate && (
+                {displayEndDate && displayStartDate !== displayEndDate && (
                   <>
                     <span className="date-separator">-</span>
                     <span className="event-card__enddate">
-                      {formatDate(event.endDate)}
+                      {formatDate(displayEndDate)}
                     </span>
                   </>
                 )}
@@ -118,12 +206,16 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
               <label className="datetime-label">🕐 Time</label>
               <div className="datetime-content">
                 <span className="event-card__starttime">
-                  {formatTime(event.startTime)}
+                  {formatTime(displayStartTime)}
                 </span>
-                <span className="time-separator">-</span>
-                <span className="event-card__endtime">
-                  {formatTime(event.endTime)}
-                </span>
+                {displayEndTime && (
+                  <>
+                    <span className="time-separator">-</span>
+                    <span className="event-card__endtime">
+                      {formatTime(displayEndTime)}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -131,7 +223,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
           {/* Location Section */}
           <div className="event-location">
             <label className="location-label">📍 Location</label>
-            <p className="event-card__location">{event.location}</p>
+            <p className="event-card__location">{displayLocation}</p>
           </div>
 
           {/* Action Button */}
@@ -155,16 +247,36 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
       <ExpandedCardPortal 
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        event={event}
+        event={{
+          ...event,
+          // Ensure consistent field names for the modal
+          title: displayTitle,
+          startDate: displayStartDate,
+          endDate: displayEndDate,
+          startTime: displayStartTime,
+          endTime: displayEndTime,
+          location: displayLocation,
+          organization: displayOrganization,
+          body: displayDescription,
+        }}
         userType={userType}
         isPast={(() => {
-          // Fix timezone issue in date comparison
-          const [year, month, day] = event.endDate.split('-').map(Number);
-          const eventEndDate = new Date(year, month - 1, day);
-          eventEndDate.setHours(23, 59, 59, 999); // End of day
-          return eventEndDate < new Date();
+          // Fix timezone issue in date comparison with safety checks
+          if (!displayEndDate) {
+            return false;
+          }
+          
+          try {
+            const [year, month, day] = displayEndDate.split('-').map(Number);
+            const eventEndDate = new Date(year, month - 1, day);
+            eventEndDate.setHours(23, 59, 59, 999); // End of day
+            return eventEndDate < new Date();
+          } catch (error) {
+            console.error('Error checking if event is past:', displayEndDate, error);
+            return false;
+          }
         })()}
-        onEventUpdated={onEventUpdated} // Pass the callback
+        onEventUpdated={onEventUpdated}
       />
     </>
   );

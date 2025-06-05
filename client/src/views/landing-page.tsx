@@ -46,8 +46,14 @@ const LandingPage = () => {
   // Filter events based on search query
   const filteredEvents = events.filter(event =>
     event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    event.location.toLowerCase().includes(searchQuery.toLowerCase())
+    event.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (event.organization && event.organization.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  // For explore section: show only first 8 events if no search, all filtered if searching
+  const exploreEvents = searchQuery.trim() 
+    ? filteredEvents // Show all matching results when searching
+    : filteredEvents.slice(0, 8); // Limit to 8 when not searching
 
   if (loading) {
     return (
@@ -96,13 +102,28 @@ const LandingPage = () => {
             <input
               type="text"
               className="search-bar"
-              placeholder="Search for events..."
+              placeholder="Search for events by title, location, or organization..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
-          <EventCardGrid events={filteredEvents} userType="student"/>
+          {/* Show search results info */}
+          {searchQuery.trim() && (
+            <p style={{ margin: '10px 0', color: '#666', textAlign: 'center' }}>
+              {exploreEvents.length} event{exploreEvents.length !== 1 ? 's' : ''} found for "{searchQuery}"
+            </p>
+          )}
+
+          {/* Show limited events or search results */}
+          <EventCardGrid events={exploreEvents} userType="student"/>
+          
+          {/* Show message when not searching and there are more events */}
+          {!searchQuery.trim() && filteredEvents.length > 8 && (
+            <p style={{ margin: '20px 0', color: '#666', textAlign: 'center', fontStyle: 'italic' }}>
+              Showing 8 of {filteredEvents.length} events. Use the search bar to find specific events.
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from "react-router-dom";
 import { Event } from "../types/types";
 import { updateOpportunity, deleteOpportunity, getOrganizationProfile } from "../utils/events-utils";
+import { volunteerForOpportunity, cancelVolunteerSignup, getVolunteeredOpportunities } from "../utils/reserve-utils";
 import "../views/styles/eventCard.css";
 import "../views/styles/expandedEventCard.css";
 
@@ -18,9 +19,82 @@ const ExpandedCardPortal: React.FC<{
   const [editedEvent, setEditedEvent] = useState<Event>({ ...event });
   const [hasJoined, setHasJoined] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingJoinStatus, setIsCheckingJoinStatus] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const navigate = useNavigate();
+
+  // Format time from military to 12-hour format
+  const formatTimeDisplay = (timeString: string) => {
+    if (!timeString) return 'Time TBD';
+    
+    try {
+      const [hours, minutes] = timeString.split(':').map(Number);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      const displayMinutes = minutes.toString().padStart(2, '0');
+      return `${displayHours}:${displayMinutes} ${period}`;
+    } catch (error) {
+      return timeString;
+    }
+  };
+
+  // Format date consistently
+  const formatDateDisplay = (dateString: string) => {
+    if (!dateString) return 'Date TBD';
+    
+    try {
+      const [year, month, day] = dateString.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  // Check if student has already joined this event - FIXED VERSION
+  useEffect(() => {
+    const checkJoinStatus = async () => {
+      if (userType === "student" && event.id && isOpen) {
+        setIsCheckingJoinStatus(true);
+        setError(null); // Clear any previous errors
+        
+        try {
+          console.log('Checking join status for event:', event.id);
+          const volunteeredEvents = await getVolunteeredOpportunities();
+          console.log('Volunteered events:', volunteeredEvents);
+          
+          // Check if this event ID exists in the volunteered events
+          const hasJoinedEvent = volunteeredEvents.some((vol: any) => {
+            console.log('Comparing:', vol.opportunity_id, 'with', event.id);
+            // Convert both to numbers for safe comparison
+            const volId = typeof vol.opportunity_id === 'string' ? parseInt(vol.opportunity_id) : vol.opportunity_id;
+            const eventId = typeof event.id === 'string' ? parseInt(event.id) : event.id;
+            return volId === eventId;
+          });
+          
+          console.log('Has joined event:', hasJoinedEvent);
+          setHasJoined(hasJoinedEvent);
+        } catch (error) {
+          console.error('Error checking join status:', error);
+          // Don't show error to user for status checking
+          setHasJoined(false); // Default to not joined if error
+        } finally {
+          setIsCheckingJoinStatus(false);
+        }
+      }
+    };
+
+    // Reset state when modal opens
+    if (isOpen && userType === "student") {
+      setHasJoined(false);
+      checkJoinStatus();
+    }
+  }, [isOpen, event.id, userType]);
 
   if (!isOpen) return null;
 
@@ -78,8 +152,61 @@ const ExpandedCardPortal: React.FC<{
     }
   };
 
-  const handleJoinEvent = () => {
-    setHasJoined(true);
+  const handleJoinEvent = async () => {
+    if (hasJoined) {
+      // If already joined, allow them to cancel
+      await handleCancelJoin();
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await volunteerForOpportunity(event.id);
+      setHasJoined(true);
+      console.log('Successfully joined event:', event.title);
+    } catch (error: any) {
+      console.error('Error joining event:', error);
+      // Check if it's because user already joined
+      if (error.message && error.message.includes('already')) {
+        setHasJoined(true);
+        setError('You have already joined this event!');
+      } else {
+        setError('Failed to join event. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancelJoin = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await cancelVolunteerSignup(event.id);
+      setHasJoined(false);
+      console.log('Successfully cancelled signup for event:', event.title);
+    } catch (error) {
+      console.error('Error cancelling signup:', error);
+      setError('Failed to cancel signup. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getJoinButtonText = () => {
+    if (isLoading) return 'Processing...';
+    if (isCheckingJoinStatus) return 'Checking...';
+    if (hasJoined) return 'Leave Event';
+    return 'Join Event';
+  };
+
+  const getJoinButtonClass = () => {
+    let baseClass = 'expanded-card-join-event-button';
+    if (hasJoined) baseClass += ' joined';
+    return baseClass;
   };
 
   return createPortal(
@@ -198,8 +325,8 @@ const ExpandedCardPortal: React.FC<{
           <>
             <h2 className="event-card__title">{event.title}</h2>
             <p><span className="event-card_label">Organization: </span>{event.organization}</p>
-            <p><span className="event-card_label">Date: </span>{event.formattedDate || event.startDate}</p>
-            <p><span className="event-card_label">Time: </span>{event.formattedTime || event.startTime}</p>
+            <p><span className="event-card_label">Date: </span>{formatDateDisplay(event.startDate)}</p>
+            <p><span className="event-card_label">Time: </span>{formatTimeDisplay(event.startTime)}</p>
             <p><span className="event-card_label">Location: </span>{event.location}</p>
             <p><span className="event-card_label">Description: </span>{event.body}</p>
           </>
@@ -209,10 +336,11 @@ const ExpandedCardPortal: React.FC<{
           {userType === "student" ? (
             !isPast ? (
               <button
-                className="expanded-card-join-event-button"
+                className={getJoinButtonClass()}
                 onClick={handleJoinEvent}
+                disabled={isLoading || isCheckingJoinStatus}
               >
-                {hasJoined ? "Successfully Joined!" : "Join Event"}
+                {getJoinButtonText()}
               </button>
             ) : null
           ) : !isPast ? (

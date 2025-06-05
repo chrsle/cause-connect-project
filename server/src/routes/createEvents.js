@@ -34,19 +34,74 @@ const authenticate = (req, res, next) => {
   });
 };
 
-// GET: Retrieve all opportunities (no filter on user_id)
+// GET: Retrieve all opportunities for STUDENTS (no filter on user_id) - ONLY ACTIVE EVENTS
 router.get('/opportunities/all', async (req, res) => {
   try {
-    const query = `SELECT * FROM opportunities`;
-    const opportunities = await db.execute(query)
-    res.json(opportunities.rows || []);
+    // Get current date in YYYY-MM-DD format for comparison
+    const today = new Date().toISOString().split('T')[0];
+    
+    const query = `SELECT * FROM opportunities WHERE date >= ? ORDER BY date ASC, time ASC`;
+    const opportunities = await db.execute(query, [today]);
+    
+    // Helper function to format time to PST with AM/PM
+    const formatTimeToPST = (timeString) => {
+      if (!timeString) return '';
+      
+      const [hours, minutes] = timeString.split(':').map(Number);
+      const date = new Date();
+      date.setHours(hours, minutes, 0, 0);
+      
+      return date.toLocaleTimeString('en-US', {
+        timeZone: 'America/Los_Angeles',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    };
+    
+    // Helper function to format date without timezone issues
+    const formatDateWithoutTimezone = (dateString) => {
+      if (!dateString) return '';
+      
+      const [year, month, day] = dateString.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    };
+    
+    // Map the database fields to match frontend Event type
+    const mappedEvents = opportunities.rows.map(event => ({
+      id: event.id,
+      title: event.title,
+      organization: event.nonprofit_name,
+      body: event.description,
+      createdDate: event.created_at || new Date().toISOString(),
+      author_id: event.user_id,
+      startDate: event.date,
+      startTime: event.time,
+      endDate: event.end_date || event.date,
+      endTime: event.end_time || "",
+      location: event.location,
+      cause: event.cause || "",
+      status: "upcoming",
+      formattedDate: formatDateWithoutTimezone(event.date),
+      formattedTime: formatTimeToPST(event.time),
+      rawTime: event.time
+    }));
+
+    res.json(mappedEvents);
 
   } catch (err) {
-    res.status(500).json({ error: 'Database error backend.' , details: err.message });
+    console.error('Error fetching all opportunities:', err);
+    res.status(500).json({ error: 'Database error backend.', details: err.message });
   }
 });
 
-// GET: Retrieve opportunities for a specific user (filtered by user_id)
+// GET: Retrieve opportunities for ORGANIZATIONS (filtered by user_id) - ALL EVENTS (past and future)
 router.get('/opportunities', authenticate, async (req, res) => {
   const { userid } = req.body; 
   
@@ -86,25 +141,24 @@ router.get('/opportunities', authenticate, async (req, res) => {
     };
     
     // Map the database fields to match frontend Event type
-const mappedEvents = opportunities.rows.map(event => ({
-    id: event.id,
-    title: event.title,
-    organization: event.nonprofit_name,
-    body: event.description,
-    createdDate: event.created_at || new Date().toISOString(),
-    author_id: event.user_id,
-    startDate: event.date,
-    startTime: event.time,
-    endDate: event.end_date || event.date,
-    endTime: event.end_time || "",
-    location: event.location,
-    cause: event.cause || "",
-    status: "upcoming",
-    formattedDate: formatDateWithoutTimezone(event.date),
-    formattedTime: formatTimeToPST(event.time),
-    rawTime: event.time
-    // Removed: volunteers: event.volunteers || "",
-}));
+    const mappedEvents = opportunities.rows.map(event => ({
+      id: event.id,
+      title: event.title,
+      organization: event.nonprofit_name,
+      body: event.description,
+      createdDate: event.created_at || new Date().toISOString(),
+      author_id: event.user_id,
+      startDate: event.date,
+      startTime: event.time,
+      endDate: event.end_date || event.date,
+      endTime: event.end_time || "",
+      location: event.location,
+      cause: event.cause || "",
+      status: "upcoming",
+      formattedDate: formatDateWithoutTimezone(event.date),
+      formattedTime: formatTimeToPST(event.time),
+      rawTime: event.time
+    }));
     
     res.json(mappedEvents);
   } catch (err) {
@@ -147,7 +201,6 @@ router.get('/opportunities/nearby', authenticate, async (req, res) => {
     res.status(500).json({ error: 'Error processing location search.' });
   }
 });
-
 
 // POST: Create a new opportunity
 router.post('/opportunities', authenticate, async (req, res) => {
@@ -211,11 +264,10 @@ router.put('/opportunities/:id', authenticate, async (req, res) => {
   }
 });
 
-
 // DELETE: Delete an opportunity
 router.delete('/opportunities/:id', authenticate, async (req, res) => {
   const { id } = req.params;
-  const { userid } = req.body; // Directly accessing userid from request body
+  const { userid } = req.body;
 
   try {
     const getOpportunityQuery = `SELECT * FROM opportunities WHERE id = ?`;
@@ -229,17 +281,29 @@ router.delete('/opportunities/:id', authenticate, async (req, res) => {
       return res.status(403).json({ error: 'You are not authorized to delete this opportunity.' });
     }
 
-    const deleteQuery = `DELETE FROM opportunities WHERE id = ? AND user_id = ?`;
+    // Step 1: Delete all volunteer signups for this event first
+    const deleteSignupsQuery = `DELETE FROM volunteer_signups WHERE opportunity_id = ?`;  
+    const deleteSignupsResult = await db.execute(deleteSignupsQuery, [id]);
 
+    console.log(`Deleted ${deleteSignupsResult.changes} volunteer signups for event ${id}`);
+
+    // Step 2: Delete the opportunity itself
+    const deleteQuery = `DELETE FROM opportunities WHERE id = ? AND user_id = ?`;
     const result = await db.execute(deleteQuery, [id, userid]);
 
     if (result.changes === 0) {
       return res.status(400).json({ error: 'No opportunity deleted.' });
     }
 
-    res.json({ message: 'Opportunity deleted successfully.' });
+    console.log(`Successfully deleted event ${id} and ${deleteSignupsResult.changes} associated signups`);
+
+    res.json({ 
+      message: 'Opportunity and all volunteer signups deleted successfully.',
+      deletedSignups: deleteSignupsResult.changes
+    });
   } catch (err) {
-    res.status(500).json({ error: 'Database error.' });
+    console.error('Error deleting opportunity:', err);
+    res.status(500).json({ error: 'Database error: ' + err.message });
   }
 });
 

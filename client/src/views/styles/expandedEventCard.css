@@ -188,3 +188,17 @@
   .expanded-card-volunteers-button:hover {
     background-color: #27ae60;
   }
+
+  .expanded-card-join-event-button.joined {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.expanded-card-join-event-button.joined:hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
+.expanded-card-join-event-button.joined:hover::after {
+  content: " (Click to Leave)";
+}

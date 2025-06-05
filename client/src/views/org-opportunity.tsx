@@ -187,7 +187,7 @@ function OrgOpportunity(){
             <div className="past-opportunities">
                 <h2 className="header-pastOpps">Past Opportunities</h2>
                 {/* Added event count feature here too */}
-<p className="number_of_events">You have {pastEvents.length} active event{pastEvents.length !== 1 ? 's' : ''}</p>              
+<p className="number_of_events">You have {pastEvents.length} past event{pastEvents.length !== 1 ? 's' : ''}</p>              
                 {isLoadingEvents ? (
                     <p>Loading events...</p>
                 ) : pastEvents.length > 0 ? (
