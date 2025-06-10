@@ -34,13 +34,23 @@ const authenticate = (req, res, next) => {
   });
 };
 
-// GET: Retrieve all opportunities for STUDENTS (no filter on user_id) - ONLY ACTIVE EVENTS
+// GET: Retrieve all opportunities for STUDENTS (no filter on user_id) - ONLY ACTIVE EVENTS WITH ORG CAUSES
 router.get('/opportunities/all', async (req, res) => {
   try {
     // Get current date in YYYY-MM-DD format for comparison
     const today = new Date().toISOString().split('T')[0];
     
-    const query = `SELECT * FROM opportunities WHERE date >= ? ORDER BY date ASC, time ASC`;
+    // JOIN with nonprofit_profiles to get organization causes
+    const query = `
+      SELECT 
+        o.*,
+        np.category as organization_causes
+      FROM opportunities o
+      LEFT JOIN nonprofit_profiles np ON o.user_id = np.user_id
+      WHERE o.date >= ? 
+      ORDER BY o.date ASC, o.time ASC
+    `;
+    
     const opportunities = await db.execute(query, [today]);
     
     // Helper function to format time to PST with AM/PM
@@ -86,13 +96,14 @@ router.get('/opportunities/all', async (req, res) => {
       endDate: event.end_date || event.date,
       endTime: event.end_time || "",
       location: event.location,
-      cause: event.cause || "",
+      cause: event.organization_causes || "", //NOW USING ORGANIZATION'S ACTUAL CAUSES!
       status: "upcoming",
       formattedDate: formatDateWithoutTimezone(event.date),
       formattedTime: formatTimeToPST(event.time),
       rawTime: event.time
     }));
 
+    console.log('Mapped events with causes:', mappedEvents.map(e => ({ title: e.title, cause: e.cause })));
     res.json(mappedEvents);
 
   } catch (err) {
@@ -210,7 +221,7 @@ router.post('/opportunities', authenticate, async (req, res) => {
   } 
   
   const { userid } = req.body; // Directly accessing userid from request body
-  //console.log('User ID:', userid); // Debugging line to check if userid is being set correctly
+
   if (!nonprofit_name || !title || !description || !date || !time || !location) {
     return res.status(400).json({ error: 'All fields are required.' });
   }

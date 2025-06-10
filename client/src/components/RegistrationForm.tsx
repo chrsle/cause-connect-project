@@ -46,10 +46,6 @@ const Registration = () => {
   };
 
   const handleNextSlide = () => {
-    // Check if the usertype is selected
-    if (usertype == "nonprofit" && slide == 1) {
-        setSlide(2);
-    }
     setSlide((prev) => prev + 1);
   };
 
@@ -58,84 +54,83 @@ const Registration = () => {
   };
 
   const handleComplete = async () => {
-  if (password !== confirmPassword) {
-    setPasswordsMatch(false);
-    return;
-  }
-
-  if (!username || !password || !confirmPassword || !usertype) {
-    console.error("Missing required fields");
-    return;
-  }
-
-  setPasswordsMatch(true);
-
-  const registrationData = {
-    usertype,
-    fullname,
-    age,
-    school,
-    bio,
-    nonprofitName,
-    selectedCauses,
-    mission,
-    location,
-    selectedInterests,
-    username,
-    password,
-  };
-
-  console.log("Registration Data:", registrationData);
-
-  try {
-    const res = await signup(username, password, usertype);
-
-    if (!res.success) {
-      console.error("Registration failed:", res.message);
-      alert("Registration failed: " + res.message);
+    if (password !== confirmPassword) {
+      setPasswordsMatch(false);
       return;
     }
 
-    const loginRes = await login(username, password);
-    if (!loginRes.success) {
-      alert("Signup succeeded, but login failed. Please log in manually.");
+    if (!username || !password || !confirmPassword || !usertype) {
+      console.error("Missing required fields");
       return;
     }
 
-    const profileData =
-      usertype === "student"
-        ? {
-            full_name: fullname,
-            age,
-            school,
-            bio,
-            interests: selectedInterests.join(", "),
-          }
-        : {
-            nonprofit_name: nonprofitName,
-            location,
-            category: selectedCauses.join(", "),
-            statement: mission,
-          };
+    setPasswordsMatch(true);
+
+    const registrationData = {
+      usertype,
+      fullname,
+      age,
+      school,
+      bio,
+      nonprofitName,
+      selectedCauses,
+      mission,
+      location,
+      selectedInterests,
+      username,
+      password,
+    };
+
+    console.log("Registration Data:", registrationData);
 
     try {
-      const profileRes = await saveUserProfile(profileData);
-      console.log("Profile saved:", profileRes);
-    } catch (err) {
-      console.error("Profile saving failed:", err);
-      alert("Account created, but saving your profile failed.");
-    }
+      const res = await signup(username, password, usertype);
 
-    setSlide(4);
-    setTimeout(() => {
-      window.location.href = "/";
-    }, 2000);
-  } catch (error) {
-    console.error("Signup error:", error);
-    alert("An error occurred during registration. Please try again.");
-  }
-};
-  
+      if (!res.success) {
+        console.error("Registration failed:", res.message);
+        alert("Registration failed: " + res.message);
+        return;
+      }
+
+      const loginRes = await login(username, password);
+      if (!loginRes.success) {
+        alert("Signup succeeded, but login failed. Please log in manually.");
+        return;
+      }
+
+      const profileData =
+        usertype === "student"
+          ? {
+              full_name: fullname,
+              age,
+              school,
+              bio,
+              interests: selectedInterests.join(", "),
+            }
+          : {
+              nonprofit_name: nonprofitName,
+              location,
+              category: selectedCauses.join(", "),
+              statement: mission,
+            };
+
+      try {
+        const profileRes = await saveUserProfile(profileData);
+        console.log("Profile saved:", profileRes);
+      } catch (err) {
+        console.error("Profile saving failed:", err);
+        alert("Account created, but saving your profile failed.");
+      }
+
+      setSlide(4);
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 2000);
+    } catch (error) {
+      console.error("Signup error:", error);
+      alert("An error occurred during registration. Please try again.");
+    }
+  };
 
   return (
     <div className="registration-flow-registration">
@@ -149,6 +144,7 @@ const Registration = () => {
         </div>
       )}
 
+      {/* Student Slide 1: Personal Info */}
       {slide === 1 && usertype === "student" && (
         <form className="form-registration" onSubmit={(e) => { e.preventDefault(); handleNextSlide(); }}>
           <h2>Tell us about yourself..</h2>
@@ -163,30 +159,12 @@ const Registration = () => {
         </form>
       )}
 
+      {/* Nonprofit Slide 1: Basic Info (no causes) */}
       {slide === 1 && usertype === "nonprofit" && (
         <form className="form-registration" onSubmit={(e) => { e.preventDefault(); handleNextSlide(); }}>
           <h2>Nonprofit Info</h2>
           <input name="name" placeholder="Nonprofit Name" onBlur={(e) => setNonprofitName(e.target.value)} required />
           <input name="location" placeholder="Location" onBlur={(e) => setLocation(e.target.value)} required />
-          <div>
-            <p className="cause-prompt">Select your cause(s):</p>
-            <div className="interests-grid">
-              {[
-                "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
-                "Environment", "Global – Locale Based", "Health & Disease", "Homeless", "Hunger & Poverty",
-                "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", "Sports"
-              ].map((cause) => (
-                <button
-                  key={cause}
-                  type="button"
-                  className={`interest-btn ${selectedCauses.includes(cause) ? 'selected' : ''}`}
-                  onClick={() => toggleCause(cause)}
-                >
-                  {selectedCauses.includes(cause) ? cause : `+ ${cause}`}
-                </button>
-              ))}
-            </div>
-          </div>
           <textarea name="mission" placeholder="Mission Statement" onBlur={(e) => setMission(e.target.value)} required />
           <div className="form-nav-buttons">
             <button type="button" onClick={handlePreviousSlide}>Back</button>
@@ -195,15 +173,15 @@ const Registration = () => {
         </form>
       )}
 
-      {/* Slide for students to pick their interests and passions */}
+      {/* Student Slide 2: Interests */}
       {slide === 2 && usertype === "student" && (
         <form className="form-registration" onSubmit={(e) => { e.preventDefault(); handleNextSlide(); }}>
           <h2>What are your interests and passions?</h2>
           <div className="interests-grid">
             {[
               "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
-                "Environment", "Global – Locale Based", "Health & Disease", "Homeless", "Hunger & Poverty",
-                "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", "Sports"
+              "Environment", "Global – Locale Based", "Health & Disease", "Homeless", "Hunger & Poverty",
+              "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", "Sports"
             ].map((interest) => (
               <button
                 key={interest}
@@ -222,7 +200,35 @@ const Registration = () => {
         </form>
       )}
 
-      {/* Slide for creating username and password */}
+      {/* Nonprofit Slide 2: Causes Selection */}
+      {slide === 2 && usertype === "nonprofit" && (
+        <form className="form-registration" onSubmit={(e) => { e.preventDefault(); handleNextSlide(); }}>
+          <h2>Select your cause(s)</h2>
+          <p className="cause-prompt">What causes does your nonprofit focus on?</p>
+          <div className="interests-grid">
+            {[
+              "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
+              "Environment", "Global – Locale Based", "Health & Disease", "Homeless", "Hunger & Poverty",
+              "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", "Sports"
+            ].map((cause) => (
+              <button
+                key={cause}
+                type="button"
+                className={`interest-btn ${selectedCauses.includes(cause) ? 'selected' : ''}`}
+                onClick={() => toggleCause(cause)}
+              >
+                {selectedCauses.includes(cause) ? cause : `+ ${cause}`}
+              </button>
+            ))}
+          </div>
+          <div className="form-nav-buttons">
+            <button type="button" onClick={handlePreviousSlide}>Back</button>
+            <button type="submit">Next</button>
+          </div>
+        </form>
+      )}
+
+      {/* Slide 3: Account Creation (both user types) */}
       {slide === 3 && (
         <form className="form-registration" onSubmit={(e) => { e.preventDefault(); handleComplete(); }}>
           <h2>Create your account!</h2>
