@@ -6,31 +6,49 @@ import EventCardCarousel from "../components/eventCardCarousel";
 import { dummyStudent } from "../constants/dummyStudent";
 import "./styles/landing-page.css";
 import EventCardGrid from "../components/eventCardGrid";
-import { getAllOpportunities } from "../utils/events-utils";
+import { getAllOpportunities, getNearbyOpportunities } from "../utils/events-utils";
 import { getUserProfile } from "../utils/profile-utils";
 
 const LandingPage = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [userData, setUserData] = useState<any>(null);
-  const [events, setEvents] = useState<Event[]>([]);
+  const [allEvents, setAllEvents] = useState<Event[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Location filtering state
+  const [currentLocation, setCurrentLocation] = useState<string>("");
+  const [selectedDistance, setSelectedDistance] = useState<string>("all");
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [locationDetected, setLocationDetected] = useState(false);
+  const [locationManuallyChanged, setLocationManuallyChanged] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Use the working profile endpoint instead of /api/me
+        setLoading(true);
+        
+        // Fetch user profile and get location from school field
         try {
           const profileData = await getUserProfile();
           setUserData(profileData);
+          // Set location from user's school or default
+          const userLocation = profileData?.school || dummyStudent.school;
+          setCurrentLocation(userLocation);
+          setLocationDetected(!!profileData?.school);
         } catch (profileError) {
           console.error("Error fetching profile:", profileError);
           setUserData(null);
+          setCurrentLocation(dummyStudent.school);
+          setLocationDetected(false);
         }
 
-        // Fetch all events
+        // Fetch all events initially
         const eventsData = await getAllOpportunities();
-        setEvents(eventsData);
+        setAllEvents(eventsData);
+        setFilteredEvents(eventsData);
+        
       } catch (err: any) {
         console.error("Error fetching data:", err);
         setError(err.message);
@@ -41,6 +59,32 @@ const LandingPage = () => {
 
     fetchData();
   }, []);
+
+  // Effect to handle location-based filtering
+  useEffect(() => {
+    const filterEventsByLocation = async () => {
+      if (!currentLocation || selectedDistance === "all") {
+        setFilteredEvents(allEvents);
+        return;
+      }
+
+      try {
+        setIsLoadingLocation(true);
+        const nearbyEvents = await getNearbyOpportunities(currentLocation, parseInt(selectedDistance));
+        setFilteredEvents(nearbyEvents);
+      } catch (error) {
+        console.error("Error filtering events by location:", error);
+        // Fallback to all events if location filtering fails
+        setFilteredEvents(allEvents);
+      } finally {
+        setIsLoadingLocation(false);
+      }
+    };
+
+    if (currentLocation && allEvents.length > 0) {
+      filterEventsByLocation();
+    }
+  }, [currentLocation, selectedDistance, allEvents]);
 
   // Helper function to check if student interests match organization causes
   const getInterestMatchedEvents = (events: Event[], studentInterests: string) => {
@@ -80,22 +124,32 @@ const LandingPage = () => {
     return matchedEvents;
   };
 
-  // Filter events based on search query (for explore section only)
-  const filteredEvents = events.filter(event =>
+  const handleLocationChange = (newLocation: string) => {
+    setCurrentLocation(newLocation);
+    setLocationDetected(false); // User manually changed location
+    setLocationManuallyChanged(true); // Track that user changed location manually
+  };
+
+  const handleDistanceChange = (distance: string) => {
+    setSelectedDistance(distance);
+  };
+
+  // Filter events based on search query (from location-filtered events)
+  const searchFilteredEvents = filteredEvents.filter(event =>
     event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     event.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (event.organization && event.organization.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Get interest-matched events for "Dive Deeper" section
+  // Get interest-matched events from location-filtered events
   const interestMatchedEvents = userData?.interests ? 
-    getInterestMatchedEvents(events, userData.interests) : 
+    getInterestMatchedEvents(filteredEvents, userData.interests) : 
     [];
 
   // For explore section: show only first 8 events if no search, all filtered if searching
   const exploreEvents = searchQuery.trim() 
-    ? filteredEvents // Show all matching results when searching
-    : filteredEvents.slice(0, 8); // Limit to 8 when not searching
+    ? searchFilteredEvents // Show all matching results when searching
+    : searchFilteredEvents.slice(0, 8); // Limit to 8 when not searching
 
   if (loading) {
     return (
@@ -124,18 +178,75 @@ const LandingPage = () => {
           </p>
         </div>
 
+        {/* Location Filter */}
+        <div className="location-filter-container">
+          <div className="location-filter">
+            <div className="location-info">
+              <span className="location-label">📍 Current Location: </span>
+              <span className="location-text">{currentLocation}</span>
+              <span className={`location-status ${locationDetected ? 'detected' : locationManuallyChanged ? 'custom' : 'default'}`}>
+                {locationDetected ? '(detected)' : locationManuallyChanged ? '(custom)' : '(default)'}
+              </span>
+            </div>
+            
+            <div className="location-controls">
+              <input
+                type="text"
+                placeholder="Change location..."
+                className="location-input"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    const newLocation = (e.target as HTMLInputElement).value.trim();
+                    if (newLocation) {
+                      handleLocationChange(newLocation);
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }
+                }}
+              />
+              
+              <select 
+                value={selectedDistance} 
+                onChange={(e) => handleDistanceChange(e.target.value)}
+                className="distance-select"
+              >
+                <option value="all">All Events</option>
+                <option value="5">Within 5 miles</option>
+                <option value="10">Within 10 miles</option>
+                <option value="25">Within 25 miles</option>
+                <option value="50">Within 50 miles</option>
+              </select>
+            </div>
+            
+            <div className="filter-status">
+              {isLoadingLocation ? (
+                <span>Loading...</span>
+              ) : (
+                <span>
+                  {filteredEvents.length} events found
+                  {selectedDistance !== 'all' && ` within ${selectedDistance} miles`}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="landing-page-events">
           <h2 className="header-events">Dive Deeper into your Interests</h2>
           {userData?.interests ? (
             <>
               <p style={{ margin: '10px 0', color: '#666', fontSize: '14px' }}>
                 Events from organizations matching your interests: <strong>{userData.interests}</strong>
+                {selectedDistance !== 'all' && ` (within ${selectedDistance} miles)`}
               </p>
               {/*Events count bar */}
               <p className="number_of_events">
                 You have {interestMatchedEvents.length} event{interestMatchedEvents.length !== 1 ? 's' : ''} matching your interests
+                {selectedDistance !== 'all' && ` within ${selectedDistance} miles`}
               </p>
-              {interestMatchedEvents.length > 0 ? (
+              {isLoadingLocation ? (
+                <p>Loading events...</p>
+              ) : interestMatchedEvents.length > 0 ? (
                 <EventCardCarousel 
                   events={interestMatchedEvents} 
                   userType="student"  
@@ -143,8 +254,12 @@ const LandingPage = () => {
                 />
               ) : (
                 <div style={{ textAlign: 'center', color: '#666', margin: '20px 0', padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
-                  <p>No events found from organizations matching your current interests.</p>
-                  <p>Check out the "Explore New Causes" section below to discover new opportunities!</p>
+                  <p>No events found from organizations matching your current interests{selectedDistance !== 'all' && ` within ${selectedDistance} miles`}.</p>
+                  {selectedDistance !== 'all' ? (
+                    <p>Try increasing your distance range or check out the "Explore New Causes" section below!</p>
+                  ) : (
+                    <p>Check out the "Explore New Causes" section below to discover new opportunities!</p>
+                  )}
                 </div>
               )}
             </>
@@ -173,16 +288,21 @@ const LandingPage = () => {
           {searchQuery.trim() && (
             <p style={{ margin: '10px 0', color: '#666', textAlign: 'center' }}>
               {exploreEvents.length} event{exploreEvents.length !== 1 ? 's' : ''} found for "{searchQuery}"
+              {selectedDistance !== 'all' && ` within ${selectedDistance} miles`}
             </p>
           )}
 
-          {/* Show limited events or search results - NO FILTERING BY INTERESTS */}
-          <EventCardGrid events={exploreEvents} userType="student"/>
+          {/* Show limited events or search results - WITH LOCATION FILTERING */}
+          {isLoadingLocation ? (
+            <p style={{ textAlign: 'center', margin: '20px 0' }}>Loading events...</p>
+          ) : (
+            <EventCardGrid events={exploreEvents} userType="student"/>
+          )}
           
           {/* Show message when not searching and there are more events */}
-          {!searchQuery.trim() && filteredEvents.length > 8 && (
+          {!searchQuery.trim() && !isLoadingLocation && searchFilteredEvents.length > 8 && (
             <p style={{ margin: '20px 0', color: '#666', textAlign: 'center', fontStyle: 'italic' }}>
-              Showing 8 of {filteredEvents.length} events. Use the search bar to find specific events.
+              Showing 8 of {searchFilteredEvents.length} events{selectedDistance !== 'all' && ` within ${selectedDistance} miles`}. Use the search bar to find specific events.
             </p>
           )}
         </div>

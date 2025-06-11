@@ -178,8 +178,8 @@ router.get('/opportunities', authenticate, async (req, res) => {
   }
 });
 
-// GET: Find opportunities near a location
-router.get('/opportunities/nearby', authenticate, async (req, res) => {
+// GET: Find opportunities near a location (UPDATED - NO AUTHENTICATION REQUIRED for students)
+router.get('/opportunities/nearby', async (req, res) => {
   const { location, radius } = req.query; // e.g. location=San Francisco&radius=10 (miles)
 
   if (!location || !radius) {
@@ -192,7 +192,21 @@ router.get('/opportunities/nearby', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Unable to geocode the provided location.' });
     }
 
-    const result = await db.execute(`SELECT * FROM opportunities`);
+    // Get current date in YYYY-MM-DD format for comparison
+    const today = new Date().toISOString().split('T')[0];
+    
+    // JOIN with nonprofit_profiles to get organization causes
+    const query = `
+      SELECT 
+        o.*,
+        np.category as organization_causes
+      FROM opportunities o
+      LEFT JOIN nonprofit_profiles np ON o.user_id = np.user_id
+      WHERE o.date >= ? 
+      ORDER BY o.date ASC, o.time ASC
+    `;
+    
+    const result = await db.execute(query, [today]);
     const allOpportunities = result.rows;
 
     const filtered = [];
@@ -202,7 +216,54 @@ router.get('/opportunities/nearby', authenticate, async (req, res) => {
 
       const dist = calculateDistance(userCoords.lat, userCoords.lon, coords.lat, coords.lon);
       if (dist <= parseFloat(radius)) {
-        filtered.push({ ...opp, distance: dist.toFixed(2) });
+        // Helper functions for formatting (same as other endpoints)
+        const formatTimeToPST = (timeString) => {
+          if (!timeString) return '';
+          
+          const [hours, minutes] = timeString.split(':').map(Number);
+          const date = new Date();
+          date.setHours(hours, minutes, 0, 0);
+          
+          return date.toLocaleTimeString('en-US', {
+            timeZone: 'America/Los_Angeles',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+          });
+        };
+        
+        const formatDateWithoutTimezone = (dateString) => {
+          if (!dateString) return '';
+          
+          const [year, month, day] = dateString.split('-').map(Number);
+          const date = new Date(year, month - 1, day);
+          
+          return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+        };
+
+        filtered.push({
+          id: opp.id,
+          title: opp.title,
+          organization: opp.nonprofit_name,
+          body: opp.description,
+          createdDate: opp.created_at || new Date().toISOString(),
+          author_id: opp.user_id,
+          startDate: opp.date,
+          startTime: opp.time,
+          endDate: opp.end_date || opp.date,
+          endTime: opp.end_time || "",
+          location: opp.location,
+          cause: opp.organization_causes || "", // Use organization causes
+          status: "upcoming",
+          formattedDate: formatDateWithoutTimezone(opp.date),
+          formattedTime: formatTimeToPST(opp.time),
+          rawTime: opp.time,
+          distance: dist.toFixed(1) // Add distance in miles
+        });
       }
     }
 

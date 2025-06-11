@@ -124,12 +124,24 @@ export const deleteOpportunity = async (id: number) => {
   }
 };
 
-// Function to get opportunities near a location (lat, lon, radius in miles)
+// Function to get opportunities near a location (without authentication for students)
 export const getNearbyOpportunities = async (location: string, radius: number = 25) => {
   try {
     const url = `${API_BASE}/opportunities/nearby?location=${encodeURIComponent(location)}&radius=${radius}`;
-    const data = await makeRequest(url, 'GET');
-    return data;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'An error occurred');
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error('Error fetching nearby opportunities:', error);
     throw error;

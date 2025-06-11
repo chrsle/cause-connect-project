@@ -24,6 +24,120 @@
     color: #1A83F8;
     font-weight: bold;
   }
+
+  /* Location Filter Styles */
+  .location-filter-container {
+    max-width: 900px;
+    margin: 0 auto 40px auto;
+    padding: 0 20px;
+  }
+
+  .location-filter {
+    background-color: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 2px 10px rgba(26, 131, 248, 0.1);
+  }
+
+  .location-info {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .location-label {
+    font-weight: bold;
+    color: #1A83F8;
+    font-size: 1.1rem;
+  }
+
+  .location-text {
+    color: #333;
+    font-weight: 500;
+    font-size: 1rem;
+  }
+
+  .location-status {
+    font-size: 0.9rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 500;
+  }
+
+  .location-status.detected {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .location-status.custom {
+    background-color: #d1ecf1;
+    color: #0c5460;
+  }
+
+  .location-status.default {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .location-controls {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .location-input {
+    flex: 1;
+    min-width: 250px;
+    padding: 10px 15px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.3s ease;
+  }
+
+  .location-input:focus {
+    border-color: #1A83F8;
+    box-shadow: 0 0 0 3px rgba(26, 131, 248, 0.1);
+  }
+
+  .distance-select {
+    padding: 10px 15px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    font-size: 1rem;
+    background-color: white;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.3s ease;
+    min-width: 180px;
+  }
+
+  .distance-select:focus {
+    border-color: #1A83F8;
+    box-shadow: 0 0 0 3px rgba(26, 131, 248, 0.1);
+  }
+
+  .filter-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-size: 0.95rem;
+    padding: 8px 12px;
+    background-color: white;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+  }
+
+  .filter-status span {
+    font-weight: 500;
+  }
   
   .landing-page-events{
     background-color: #1A83F8;
@@ -42,8 +156,7 @@
     padding: 20px;
   }
 
-
-.search-bar-container {
+  .search-bar-container {
     margin: 20px 0;
     display: flex;
     justify-content: center;
@@ -63,6 +176,43 @@
   .search-bar:focus {
     border-color: #1A83F8; 
   }
-  
 
-  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .location-controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .location-input,
+    .distance-select {
+      min-width: 100%;
+    }
+
+    .location-info {
+      justify-content: center;
+      text-align: center;
+    }
+
+    .location-filter {
+      padding: 20px 15px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .landing-page-header {
+      padding: 30px 15px;
+    }
+
+    .landing-page__greeting {
+      font-size: 2rem;
+    }
+
+    .landing-page__welcome {
+      font-size: 1.1rem;
+    }
+
+    .location-filter-container {
+      padding: 0 15px;
+    }
+  }
