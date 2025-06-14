@@ -135,4 +135,103 @@ router.get('/events/opportunity/:opportunity_id/volunteers', async (req, res) =>
   }
 });
 
+// GET: Get all volunteers for a specific event (for organizations)
+router.get('/opportunities/:id/volunteers', authenticate, async (req, res) => {
+  try {
+    const eventId = req.params.id;
+    const userId = req.body.userid;
+    
+    
+    const eventOwner = await db.execute(
+      `SELECT user_id FROM opportunities WHERE id = ?`,
+      [eventId]
+    );
+    
+    if (eventOwner.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    if (eventOwner.rows[0].user_id !== userId) {
+      return res.status(403).json({ error: 'You can only view volunteers for your own events' });
+    }
+    
+    // Get all volunteers for this event with their profile information
+    const volunteers = await db.execute(`
+      SELECT 
+        sp.id,
+        sp.user_id,
+        sp.full_name,
+        sp.age,
+        sp.school,
+        sp.bio,
+        sp.interests,
+        u.username as email,
+        vs.signup_date
+      FROM volunteer_signups vs
+      JOIN users u ON vs.user_id = u.id
+      JOIN student_profiles sp ON u.id = sp.user_id
+      WHERE vs.opportunity_id = ?
+      ORDER BY vs.signup_date ASC
+    `, [eventId]);
+    
+    res.json(volunteers.rows);
+  } catch (error) {
+    console.error('Error fetching event volunteers:', error);
+    res.status(500).json({ error: 'Failed to fetch volunteers' });
+  }
+});
+
+// DELETE: Remove a volunteer from an event (for organizations)
+router.delete('/opportunities/:eventId/volunteers/:userId', authenticate, async (req, res) => {
+  try {
+    const eventId = req.params.eventId;
+    const volunteerUserId = req.params.userId;
+    const organizationUserId = req.body.userid;
+    
+    
+    const eventOwner = await db.execute(
+      `SELECT user_id FROM opportunities WHERE id = ?`,
+      [eventId]
+    );
+    
+    if (eventOwner.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    if (eventOwner.rows[0].user_id !== organizationUserId) {
+      return res.status(403).json({ error: 'You can only remove volunteers from your own events' });
+    }
+    
+    // Check if the event is in the future (only allow removal from future events)
+    const eventInfo = await db.execute(
+      `SELECT date, time FROM opportunities WHERE id = ?`,
+      [eventId]
+    );
+    
+    if (eventInfo.rows.length > 0) {
+      const eventDateTime = new Date(`${eventInfo.rows[0].date}T${eventInfo.rows[0].time}`);
+      const currentDateTime = new Date();
+      
+      if (eventDateTime <= currentDateTime) {
+        return res.status(400).json({ error: 'Cannot remove volunteers from past events' });
+      }
+    }
+    
+    // Remove the volunteer from the event
+    const result = await db.execute(
+      `DELETE FROM volunteer_signups WHERE opportunity_id = ? AND user_id = ?`,
+      [eventId, volunteerUserId]
+    );
+    
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Volunteer signup not found' });
+    }
+    
+    res.json({ message: 'Volunteer removed successfully' });
+  } catch (error) {
+    console.error('Error removing volunteer:', error);
+    res.status(500).json({ error: 'Failed to remove volunteer' });
+  }
+});
+
 module.exports = router;

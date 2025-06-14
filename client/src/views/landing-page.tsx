@@ -235,7 +235,7 @@ const LandingPage = () => {
           <h2 className="header-events">Dive Deeper into your Interests</h2>
           {userData?.interests ? (
             <>
-              <p style={{ margin: '10px 0', color: '#666', fontSize: '14px' }}>
+              <p style={{ margin: '10px 0', fontSize: '14px' }}>
                 Events from organizations matching your interests: <strong>{userData.interests}</strong>
                 {selectedDistance !== 'all' && ` (within ${selectedDistance} miles)`}
               </p>

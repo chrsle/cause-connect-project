@@ -1,24 +1,21 @@
 import NavBar from "../components/navBar";
-import { Event } from "../types/types";
-import EventCardCarousel from "../components/eventCardCarousel";
-import DraftEventCard from "../components/draftEventCard";
-import EventCard from "../components/eventCard";
+import { Event, Student } from "../types/types";
 import "./styles/orgMyEvents.css";
-import EventCardGrid from "../components/eventCardGrid";
 import { useState, useEffect } from "react";
 import { dummyOrganization } from "../constants/dummyOrgs";
-import { getUserOpportunities, getOrganizationProfile } from "../utils/events-utils";
+import { getUserOpportunities, getOrganizationProfile, getEventVolunteers, removeVolunteerFromEvent } from "../utils/events-utils";
 
-interface EventCardProps {
-    events: Event[];
-    userType: "student" | "organization";
+interface EventWithVolunteers extends Event {
+  volunteers: Student[];
 }
 
 function OrgMyEvents() {
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<EventWithVolunteers[]>([]);
   const [organizationProfile, setOrganizationProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
+  const [expandedVolunteer, setExpandedVolunteer] = useState<number | null>(null);
   
   useEffect(() => {
     const fetchData = async () => {
@@ -29,7 +26,21 @@ function OrgMyEvents() {
         
         // Fetch organization's events
         const eventsData = await getUserOpportunities();
-        setEvents(eventsData);
+        
+        // Fetch volunteers for each event
+        const eventsWithVolunteers = await Promise.all(
+          eventsData.map(async (event: Event) => {
+            try {
+              const volunteers = await getEventVolunteers(event.id);
+              return { ...event, volunteers };
+            } catch (error) {
+              console.error(`Error fetching volunteers for event ${event.id}:`, error);
+              return { ...event, volunteers: [] };
+            }
+          })
+        );
+        
+        setEvents(eventsWithVolunteers);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -41,19 +52,12 @@ function OrgMyEvents() {
   }, []);
   
   // Function to categorize events by date/time
-  const categorizeEvents = () => {
+  const categorizeEvents = (eventsToFilter: EventWithVolunteers[]) => {
     const currentDateTime = new Date();
-    const upcoming: Event[] = [];
-    const past: Event[] = [];
-    const draft: Event[] = [];
+    const upcoming: EventWithVolunteers[] = [];
+    const past: EventWithVolunteers[] = [];
     
-    events.forEach((event: Event) => {
-      // Handle draft events first
-      if (event.status === 'draft') {
-        draft.push(event);
-        return;
-      }
-      
+    eventsToFilter.forEach((event: EventWithVolunteers) => {
       // Parse date without timezone conversion
       const [year, month, day] = event.startDate.split('-').map(Number);
       const eventDate = new Date(year, month - 1, day);
@@ -71,14 +75,67 @@ function OrgMyEvents() {
       }
     });
     
-    return { upcoming, past, draft };
+    return { upcoming, past };
   };
   
   // Filter events based on search query
   const filteredEvents = events.filter(event =>
     event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    event.location.toLowerCase().includes(searchQuery.toLowerCase())
+    event.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    event.volunteers.some(volunteer => 
+      volunteer.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
   );
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'Date TBD';
+    try {
+      const [year, month, day] = dateString.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return 'Invalid Date';
+    }
+  };
+
+  // Format time for display
+  const formatTime = (timeString: string) => {
+    if (!timeString) return 'Time TBD';
+    try {
+      const [hours, minutes] = timeString.split(':').map(Number);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      const displayMinutes = minutes.toString().padStart(2, '0');
+      return `${displayHours}:${displayMinutes} ${period}`;
+    } catch (error) {
+      return timeString;
+    }
+  };
+
+  // Handle removing volunteer from event
+  const handleRemoveVolunteer = async (eventId: number, volunteerId: number) => {
+    if (window.confirm('Are you sure you want to remove this volunteer from the event?')) {
+      try {
+        await removeVolunteerFromEvent(eventId, volunteerId);
+        // Update the local state
+        setEvents(prevEvents => 
+          prevEvents.map(event => 
+            event.id === eventId 
+              ? { ...event, volunteers: event.volunteers.filter(v => v.id !== volunteerId) }
+              : event
+          )
+        );
+      } catch (error) {
+        console.error('Error removing volunteer:', error);
+        alert('Failed to remove volunteer. Please try again.');
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -91,8 +148,8 @@ function OrgMyEvents() {
     );
   }
 
-  // Get categorized events
-  const { upcoming: upcomingEvents, past: pastEvents, draft: draftEvents } = categorizeEvents();
+  // Get categorized events from filtered results
+  const { upcoming: upcomingEvents, past: pastEvents } = categorizeEvents(filteredEvents);
 
   return(
     <>
@@ -104,62 +161,207 @@ function OrgMyEvents() {
             Hello, <span className="highlight">{organizationProfile?.nonprofit_name || dummyOrganization.name}</span>
           </h1>
           <p className="landing-page__welcome">
-            Here are  <span className="highlight"> your events</span>{" "} 
+            Here are your events and <span className="highlight">volunteers</span>
           </p>
+        </div>
+
+        {/* Search Bar */}
+        <div className="search-container">
+          <input
+            type="text"
+            placeholder="Search events or volunteers..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
         </div>
       </div>
 
-      {/* Draft Events Section */}
-      {draftEvents.length > 0 && (
-        <div className="draft-events-section">
-          <div className="draft-header-container">
-            <h2 className="draft-events-title">
-              📝 Draft Events
-            </h2>
-            <span className="draft-badge">Incomplete</span>
-          </div>
-          <p className="number_of_events draft-count">
-            You have {draftEvents.length} incomplete draft{draftEvents.length !== 1 ? 's' : ''}
-          </p>
-          <div className="draft-events-notice">
-            <div className="draft-notice-content">
-              <span className="draft-notice-icon">⚠️</span>
-              <p>Complete your drafts to publish them and start accepting applications.</p>
-            </div>
-          </div>
-          <EventCardCarousel 
-            events={draftEvents} 
-            userType="organization"
-            renderCard={(event, userType) => <DraftEventCard event={event} userType={userType} />}
-          />
-        </div>
-      )}
-
       {/* Upcoming Events Section */}
-      <div className="landing-page-events">
-        <h2 className="header-events">Upcoming Opportunities</h2>
-        <p className="number_of_events"> You have {upcomingEvents.length} upcoming events</p>
+      <div className="events-section">
+        <h2 className="section-title">Upcoming Events</h2>
+        <p className="events-count">
+          {searchQuery ? 
+            `Found ${upcomingEvents.length} upcoming events` : 
+            `You have ${upcomingEvents.length} upcoming events`
+          }
+        </p>
+        
         {upcomingEvents.length > 0 ? (
-          <EventCardCarousel 
-            events={upcomingEvents} 
-            userType="organization"
-            renderCard={(event, userType) => <EventCard event={event} userType={userType} />}
-          />
+          <div className="events-list">
+            {upcomingEvents.map((event) => (
+              <div key={event.id} className="event-item">
+                <div className="event-header" onClick={() => setExpandedEvent(expandedEvent === event.id ? null : event.id)}>
+                  <div className="event-info">
+                    <h3 className="event-title">{event.title}</h3>
+                    <div className="event-details">
+                      <span className="event-date">{formatDate(event.startDate)} at {formatTime(event.startTime)}</span>
+                      <span className="event-location">{event.location}</span>
+                    </div>
+                  </div>
+                  <div className="event-stats">
+                    <span className="volunteer-count">{event.volunteers.length} volunteers</span>
+                    <span className="expand-icon">{expandedEvent === event.id ? '▼' : '▶'}</span>
+                  </div>
+                </div>
+                
+                {expandedEvent === event.id && (
+                  <div className="volunteers-list">
+                    {event.volunteers.length > 0 ? (
+                      event.volunteers.map((volunteer) => (
+                        <div key={volunteer.id} className="volunteer-item">
+                          <div 
+                            className="volunteer-basic-info"
+                            onClick={() => setExpandedVolunteer(expandedVolunteer === volunteer.id ? null : volunteer.id)}
+                          >
+                            <span className="volunteer-name">{volunteer.full_name}</span>
+                            <div className="volunteer-actions">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveVolunteer(event.id, volunteer.user_id);
+                                }}
+                                className="remove-volunteer-btn"
+                                title="Remove volunteer"
+                              >
+                                ✕
+                              </button>
+                              <span className="expand-volunteer-icon">
+                                {expandedVolunteer === volunteer.id ? '▼' : '▶'}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {expandedVolunteer === volunteer.id && (
+                            <div className="volunteer-details">
+                              <div className="detail-row">
+                                <strong>Age:</strong> {volunteer.age}
+                              </div>
+                              <div className="detail-row">
+                                <strong>Location:</strong> {volunteer.school}
+                              </div>
+                              <div className="detail-row">
+                                <strong>Username:</strong> {volunteer.email}
+                              </div>
+                              {volunteer.phone && (
+                                <div className="detail-row">
+                                  <strong>Phone:</strong> {volunteer.phone}
+                                </div>
+                              )}
+                              {volunteer.bio && (
+                                <div className="detail-row">
+                                  <strong>Bio:</strong> {volunteer.bio}
+                                </div>
+                              )}
+                              {volunteer.interests && (
+                                <div className="detail-row">
+                                  <strong>Interests:</strong> {volunteer.interests}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="no-volunteers">No volunteers signed up yet</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         ) : (
-          <p>No upcoming events at this time.</p>
+          <p className="no-events">
+            {searchQuery ? 
+              "No upcoming events match your search." : 
+              "No upcoming events at this time."
+            }
+          </p>
         )}
       </div>
 
-      <div className="header-pastEvents">
-        <h2 className="header-pastOpps">Past Opportunities</h2>
-      </div>
-
-      {/* FIXED: Only show PAST events here, not ALL events */}
-      <div className="past-opportunities-grid">
+      {/* Past Events Section */}
+      <div className="events-section">
+        <h2 className="section-title">Past Events</h2>
+        
         {pastEvents.length > 0 ? (
-          <EventCardGrid events={pastEvents} userType="organization" />
+          <div className="events-list">
+            {pastEvents.map((event) => (
+              <div key={event.id} className="event-item past-event">
+                <div className="event-header" onClick={() => setExpandedEvent(expandedEvent === event.id ? null : event.id)}>
+                  <div className="event-info">
+                    <h3 className="event-title">{event.title}</h3>
+                    <div className="event-details">
+                      <span className="event-date">{formatDate(event.startDate)} at {formatTime(event.startTime)}</span>
+                      <span className="event-location">{event.location}</span>
+                    </div>
+                  </div>
+                  <div className="event-stats">
+                    <span className="volunteer-count">{event.volunteers.length} participated</span>
+                    <span className="expand-icon">{expandedEvent === event.id ? '▼' : '▶'}</span>
+                  </div>
+                </div>
+                
+                {expandedEvent === event.id && (
+                  <div className="volunteers-list">
+                    {event.volunteers.length > 0 ? (
+                      event.volunteers.map((volunteer) => (
+                        <div key={volunteer.id} className="volunteer-item">
+                          <div 
+                            className="volunteer-basic-info"
+                            onClick={() => setExpandedVolunteer(expandedVolunteer === volunteer.id ? null : volunteer.id)}
+                          >
+                            <span className="volunteer-name">{volunteer.full_name}</span>
+                            <span className="expand-volunteer-icon">
+                              {expandedVolunteer === volunteer.id ? '▼' : '▶'}
+                            </span>
+                          </div>
+                          
+                          {expandedVolunteer === volunteer.id && (
+                            <div className="volunteer-details">
+                              <div className="detail-row">
+                                <strong>Age:</strong> {volunteer.age}
+                              </div>
+                              <div className="detail-row">
+                                <strong>Location:</strong> {volunteer.school}
+                              </div>
+                              <div className="detail-row">
+                                <strong>Username:</strong> {volunteer.email}
+                              </div>
+                              {volunteer.phone && (
+                                <div className="detail-row">
+                                  <strong>Phone:</strong> {volunteer.phone}
+                                </div>
+                              )}
+                              {volunteer.bio && (
+                                <div className="detail-row">
+                                  <strong>Bio:</strong> {volunteer.bio}
+                                </div>
+                              )}
+                              {volunteer.interests && (
+                                <div className="detail-row">
+                                  <strong>Interests:</strong> {volunteer.interests}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="no-volunteers">No volunteers participated</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         ) : (
-          <p>No past events found.</p>
+          <p className="no-events">
+            {searchQuery ? 
+              "No past events match your search." : 
+              "No past events found."
+            }
+          </p>
         )}
       </div>
     </>

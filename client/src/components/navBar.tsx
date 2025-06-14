@@ -75,7 +75,7 @@ const NavBar: React.FC<NavBarProps> = ({ userType }) => {
                 <div>
                   {userType === "organization" ? (
                     <button className="dropdown-list" onClick={() => (window.location.href = 'org-my-events')}>
-                      My Drafts
+                      View Volunteer Signups
                     </button>
                   ) : (
                     <button className="dropdown-list" onClick={() => (window.location.href = 'my-events')}>

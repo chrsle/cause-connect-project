@@ -147,3 +147,25 @@ export const getNearbyOpportunities = async (location: string, radius: number = 
     throw error;
   }
 };
+
+// Function to get volunteers for a specific event
+export const getEventVolunteers = async (eventId: number) => {
+  try {
+    const data = await makeRequest(`${API_BASE}/opportunities/${eventId}/volunteers`, 'GET');
+    return data;
+  } catch (error) {
+    console.error('Error fetching event volunteers:', error);
+    throw error;
+  }
+};
+
+// Function to remove a volunteer from an event
+export const removeVolunteerFromEvent = async (eventId: number, userId: number) => {
+  try {
+    const data = await makeRequest(`${API_BASE}/opportunities/${eventId}/volunteers/${userId}`, 'DELETE');
+    return data;
+  } catch (error) {
+    console.error('Error removing volunteer from event:', error);
+    throw error;
+  }
+};
