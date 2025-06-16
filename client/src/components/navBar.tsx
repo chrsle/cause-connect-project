@@ -1,21 +1,167 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import "../views/styles/navBar.css";
 import blueTransparent from "../blueTransparent.png";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import profileIcon2 from "../profileIcon2.png";
 import "../views/styles/dropDownMenu.css";
 import avatar from "../default-avatar.png";
 import { dummyStudent } from "../constants/dummyStudent";
 import { dummyOrganization } from "../constants/dummyOrgs";
+import { getOrganizationProfile } from "../utils/events-utils";
+import { getUserProfile } from "../utils/profile-utils";
+import { logout } from "../utils/user-utils"; 
 
 interface NavBarProps {
     userType: "student" | "organization";
-  }
+}
 
+interface StudentProfile {
+  full_name: string;
+  age: number;
+  school: string;
+  bio: string;
+  interests: string;
+  username?: string; // Add username from users table
+}
+
+interface OrganizationProfile {
+  nonprofit_name: string;
+  location: number;
+  category: string;
+  statement: string;
+  username?: string; // Add username from users table
+}
 
 const NavBar: React.FC<NavBarProps> = ({ userType }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
+  const [organizationProfile, setOrganizationProfile] = useState<OrganizationProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate(); // Add navigate hook
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      const response = await logout();
+      if (response.success) {
+        // Clear any local state if needed
+        setStudentProfile(null);
+        setOrganizationProfile(null);
+        setIsOpen(false);
+        
+        // Redirect to login page
+        navigate('/');
+      } else {
+        console.error('Logout failed:', response.message);
+        // Even if logout fails on backend, redirect to login for security
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Even if there's an error, redirect to login for security
+      navigate('/');
+    }
+  };
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Use /me endpoint for both user types since it returns username
+        const data = await makeRequest(`${API_BASE}/me`, 'GET');
+        console.log('User data received:', data); // Debug log
+        
+        if (userType === "student") {
+          if (data && data.profile) {
+            // Add username from the main user data to the profile
+            const profileWithUsername = {
+              ...data.profile,
+              username: data.username
+            };
+            setStudentProfile(profileWithUsername);
+          } else {
+            setError('No student profile found');
+          }
+        } else {
+          if (data && data.profile) {
+            // Add username from the main user data to the profile
+            const profileWithUsername = {
+              ...data.profile,
+              username: data.username
+            };
+            setOrganizationProfile(profileWithUsername);
+          } else {
+            setError('No organization profile found');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        setError('Failed to fetch profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Helper function for API calls (inline version since we need it here)
+    const makeRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', data?: any) => {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      const requestOptions: RequestInit = {
+        method,
+        headers,
+        credentials: 'include', 
+        body: data ? JSON.stringify(data) : undefined,
+      };
+
+      const response = await fetch(url, requestOptions);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'An error occurred');
+      }
+      return await response.json();
+    };
+
+    const API_BASE = "http://localhost:5001/api";
+
+    fetchUserProfile();
+  }, [userType]);
+
+  // Get display data with fallback to dummy data
+  const getDisplayData = () => {
+    if (userType === "organization") {
+      if (organizationProfile) {
+        return {
+          name: organizationProfile.nonprofit_name,
+          username: organizationProfile.username || 'No username'
+        };
+      } else {
+        return {
+          name: dummyOrganization.name,
+          username: dummyOrganization.email // fallback to dummy data
+        };
+      }
+    } else {
+      if (studentProfile) {
+        return {
+          name: studentProfile.full_name,
+          username: studentProfile.username || 'No username'
+        };
+      } else {
+        return {
+          name: dummyStudent.full_name,
+          username: dummyStudent.email // fallback to dummy data
+        };
+      }
+    }
+  };
+
+  const displayData = getDisplayData();
     
   return (
         <nav className="navbar">
@@ -45,19 +191,25 @@ const NavBar: React.FC<NavBarProps> = ({ userType }) => {
   
             {isOpen && (
               <div className="dropdown-menu">
-                {userType === "organization" ? (
-                  <div className="dropdown-profile">
-                    <img src={avatar} alt="Profile" />
-                    <h4>{dummyOrganization.name}</h4>
-                    <p>{dummyOrganization.email}</p>
-                  </div>
-                ) : (
-                  <div className="dropdown-profile">
-                    <img src={avatar} alt="Profile" />
-                    <h4>{dummyStudent.full_name}</h4>
-                    <p>{dummyStudent.email}</p>
-                  </div>
-                )}
+                <div className="dropdown-profile">
+                  <img src={avatar} alt="Profile" />
+                  {loading ? (
+                    <>
+                      <h4>Loading...</h4>
+                      <p>Loading...</p>
+                    </>
+                  ) : error ? (
+                    <>
+                      <h4>Error loading profile</h4>
+                      <p>{error}</p>
+                    </>
+                  ) : (
+                    <>
+                      <h4>{displayData.name}</h4>
+                      <p>{displayData.username}</p>
+                    </>
+                  )}
+                </div>
 
                 <div className="dropdown-list-container">
                  {userType === "organization" ? (
@@ -92,7 +244,9 @@ const NavBar: React.FC<NavBarProps> = ({ userType }) => {
                 </div>
 
                 <div>
-                  <button className="dropdown-list">Log out</button>
+                  <button className="dropdown-list" onClick={handleLogout}>
+                    Log out
+                  </button>
                 </div>
               </div>
             )}
