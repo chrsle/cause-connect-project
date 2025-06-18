@@ -7,7 +7,7 @@ import EventCard from "../components/eventCard";
 import EventCardGrid from "../components/eventCardGrid";
 import { useState, useEffect } from "react";
 import { getVolunteeredOpportunities } from "../utils/reserve-utils";
-import { getUserProfile } from "../utils/profile-utils"; //Import the working function
+import { getUserProfile } from "../utils/profile-utils"; 
 
 interface EventCardProps {
     events: Event[];
