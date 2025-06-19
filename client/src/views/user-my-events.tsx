@@ -6,6 +6,7 @@ import "./styles/UserMyEvents.css";
 import EventCard from "../components/eventCard";
 import EventCardGrid from "../components/eventCardGrid";
 import { useState, useEffect } from "react";
+import { getAllOpportunities } from "../utils/events-utils";
 import { getVolunteeredOpportunities } from "../utils/reserve-utils";
 import { getUserProfile } from "../utils/profile-utils"; 
 
@@ -32,32 +33,23 @@ function MyEvents() {
           setUserData(null);
         }
 
-        // Fetch ONLY events the student has signed up for
-        const volunteeredEvents = await getVolunteeredOpportunities();
-        console.log('Student volunteered events:', volunteeredEvents);
+        // Get all opportunities (like landing page does)
+        const allOpportunities = await getAllOpportunities();
         
-        // Map the volunteered events to match Event type
-        const mappedEvents = volunteeredEvents.map((event: any) => ({
-          id: event.id,
-          title: event.title,
-          organization: event.nonprofit_name || 'Organization',
-          body: event.description,
-          createdDate: new Date().toISOString(),
-          author_id: event.user_id,
-          startDate: event.date,
-          startTime: event.time,
-          endDate: event.end_date || event.date,
-          endTime: event.end_time || "",
-          location: event.location,
-          cause: event.cause || "",
-          status: "upcoming",
-          // Add formatted versions
-          formattedDate: formatDateDisplay(event.date),
-          formattedTime: formatTimeDisplay(event.time),
-          rawTime: event.time
-        }));
+        // Get list of opportunity IDs the user has volunteered for
+        const volunteeredList = await getVolunteeredOpportunities(); // Returns just signup info
+        const volunteeredIds = volunteeredList.map((v: any) => v.id || v.opportunity_id);
         
-        setEvents(mappedEvents);
+        // Filter all opportunities to only show ones user signed up for
+        const userEvents = allOpportunities.filter((event: any) => 
+          volunteeredIds.includes(event.id)
+        );
+        
+        console.log('All opportunities:', allOpportunities);
+        console.log('Volunteered IDs:', volunteeredIds);
+        console.log('User events:', userEvents);
+        
+        setEvents(userEvents);
       } catch (error) {
         console.error('Error fetching student events:', error);
       } finally {
