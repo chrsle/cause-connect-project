@@ -150,7 +150,7 @@ const Registration = () => {
           <h2>Tell us about yourself..</h2>
           <input name="fullname" placeholder="Full Name" onBlur={(e) => setFullname(e.target.value)} required />
           <input name="age" type="number" placeholder="Age" onBlur={(e) => setAge(Number(e.target.value))} required />
-          <input name="school" placeholder="School" onBlur={(e) => setSchool(e.target.value)} required />
+          <input name="school" placeholder="Location" onBlur={(e) => setSchool(e.target.value)} required />
           <textarea name="bio" placeholder="Personal Bio" onBlur={(e) => setBio(e.target.value)} required />
           <div className="form-nav-buttons">
             <button type="button" onClick={handlePreviousSlide}>Back</button>
@@ -234,7 +234,7 @@ const Registration = () => {
           <h2>Create your account!</h2>
           <input
             name="username"
-            placeholder="Email"
+            placeholder="Username"
             onBlur={(e) => setUsername(e.target.value)}
             required
           />
