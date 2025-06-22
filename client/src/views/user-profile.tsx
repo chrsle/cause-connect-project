@@ -278,10 +278,7 @@ function UserProfile() {
             </span>
           </div>
 
-          <div className="skills-container">
-            <h3 className="skills-title">Upcoming Events: 0</h3>
-            <h3 className="skills-title">Past Events: 0</h3>
-          </div>
+          
 
           <button 
             className="edit-profile-btn"
