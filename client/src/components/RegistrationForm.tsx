@@ -18,11 +18,44 @@ const Registration = () => {
   const [mission, setMission] = useState<string | null>(null);
   const [location, setLocation] = useState<string | null>(null);
 
-  const [username, setUsername] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [password, setPassword] = useState<string | null>(null);
   const [confirmPassword, setConfirmPassword] = useState<string | null>(null);
   
   const [passwordsMatch, setPasswordsMatch] = useState<boolean>(true);
+  const [emailValid, setEmailValid] = useState<boolean>(true);
+
+  // Email validation function
+  const validateEmail = (email: string): boolean => {
+    if (!email) return false;
+    
+    // Check for @ symbol
+    if (!email.includes('@')) return false;
+    
+    // Split by @ and check for domain part
+    const parts = email.split('@');
+    if (parts.length !== 2) return false;
+    
+    const [localPart, domainPart] = parts;
+    
+    // Check that both parts exist
+    if (!localPart || !domainPart) return false;
+    
+    // Check that domain part contains a dot
+    if (!domainPart.includes('.')) return false;
+    
+    // Check that there's content after the dot
+    const domainParts = domainPart.split('.');
+    const lastPart = domainParts[domainParts.length - 1];
+    if (!lastPart || lastPart.length < 2) return false;
+    
+    return true;
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setEmailValid(validateEmail(value));
+  };
 
   const toggleCause = (cause: string) => {
     setSelectedCauses((prev) =>
@@ -59,8 +92,13 @@ const Registration = () => {
       return;
     }
 
-    if (!username || !password || !confirmPassword || !usertype) {
+    if (!email || !password || !confirmPassword || !usertype) {
       console.error("Missing required fields");
+      return;
+    }
+
+    if (!emailValid) {
+      console.error("Invalid email format");
       return;
     }
 
@@ -77,14 +115,14 @@ const Registration = () => {
       mission,
       location,
       selectedInterests,
-      username,
+      email,
       password,
     };
 
     console.log("Registration Data:", registrationData);
 
     try {
-      const res = await signup(username, password, usertype);
+      const res = await signup(email, password, usertype);
 
       if (!res.success) {
         console.error("Registration failed:", res.message);
@@ -92,7 +130,7 @@ const Registration = () => {
         return;
       }
 
-      const loginRes = await login(username, password);
+      const loginRes = await login(email, password);
       if (!loginRes.success) {
         alert("Signup succeeded, but login failed. Please log in manually.");
         return;
@@ -180,8 +218,9 @@ const Registration = () => {
           <div className="interests-grid">
             {[
               "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
-              "Environment", "Global – Locale Based", "Health & Disease", "Homeless", "Hunger & Poverty",
-              "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", "Sports"
+              "Environment", "Global – Local Based", "Health & Disease", "Homeless", "Hunger & Poverty",
+              "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", 
+              "Sports", "Music/Art", "Engineering", "Mathematics", "Science", "Social Justice"
             ].map((interest) => (
               <button
                 key={interest}
@@ -208,8 +247,9 @@ const Registration = () => {
           <div className="interests-grid">
             {[
               "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
-              "Environment", "Global – Locale Based", "Health & Disease", "Homeless", "Hunger & Poverty",
-              "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", "Sports"
+              "Environment", "Global – Local Based", "Health & Disease", "Homeless", "Hunger & Poverty",
+              "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", 
+              "Sports", "Music/Art", "Engineering", "Mathematics", "Science", "Social Justice"
             ].map((cause) => (
               <button
                 key={cause}
@@ -233,11 +273,15 @@ const Registration = () => {
         <form className="form-registration" onSubmit={(e) => { e.preventDefault(); handleComplete(); }}>
           <h2>Create your account!</h2>
           <input
-            name="username"
-            placeholder="Username"
-            onBlur={(e) => setUsername(e.target.value)}
+            name="email"
+            type="email"
+            placeholder="Email"
+            onBlur={(e) => handleEmailChange(e.target.value)}
             required
           />
+          {!emailValid && email && (
+            <p style={{ color: 'red' }}>Please enter a valid email address (must contain @ and a domain like .com)</p>
+          )}
           <input
             name="password"
             type="password"
@@ -257,7 +301,13 @@ const Registration = () => {
           )}
           <div className="form-nav-buttons final-step-buttons">
             <button type="button" onClick={handlePreviousSlide}>Back</button>
-            <button type="submit" className="complete-registration">Complete Registration</button>
+            <button 
+              type="submit" 
+              className="complete-registration"
+              disabled={!emailValid || !email}
+            >
+              Complete Registration
+            </button>
           </div>
         </form>
       )}

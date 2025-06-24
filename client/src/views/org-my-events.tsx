@@ -17,39 +17,56 @@ function OrgMyEvents() {
   const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
   const [expandedVolunteer, setExpandedVolunteer] = useState<number | null>(null);
   
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch organization profile
-        const profile = await getOrganizationProfile();
-        setOrganizationProfile(profile);
-        
-        // Fetch organization's events
-        const eventsData = await getUserOpportunities();
-        
-        // Fetch volunteers for each event
-        const eventsWithVolunteers = await Promise.all(
-          eventsData.map(async (event: Event) => {
-            try {
-              const volunteers = await getEventVolunteers(event.id);
-              return { ...event, volunteers };
-            } catch (error) {
-              console.error(`Error fetching volunteers for event ${event.id}:`, error);
-              return { ...event, volunteers: [] };
-            }
-          })
-        );
-        
-        setEvents(eventsWithVolunteers);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Add this debugging version to your OrgMyEvents component's useEffect
 
-    fetchData();
-  }, []);
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      console.log('Starting to fetch data...');
+      
+      // Fetch organization profile
+      const profile = await getOrganizationProfile();
+      console.log('Organization profile:', profile);
+      setOrganizationProfile(profile);
+      
+      // Fetch organization's events
+      const eventsData = await getUserOpportunities();
+      console.log('Events data:', eventsData);
+      
+      // Fetch volunteers for each event
+      const eventsWithVolunteers = await Promise.all(
+        eventsData.map(async (event: Event) => {
+          try {
+            console.log(`Fetching volunteers for event ${event.id}:`, event.title);
+            const volunteers = await getEventVolunteers(event.id);
+            console.log(`Volunteers for event ${event.id}:`, volunteers);
+            return { ...event, volunteers };
+          } catch (error) {
+            console.error(`Error fetching volunteers for event ${event.id}:`, error);
+            // Log more details about the error
+            if (error instanceof Error) {
+              console.error('Error message:', error.message);
+            }
+            return { ...event, volunteers: [] };
+          }
+        })
+      );
+      
+      console.log('Final events with volunteers:', eventsWithVolunteers);
+      setEvents(eventsWithVolunteers);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      // Log more details about the error
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, []);
   
   // Function to categorize events by date/time
   const categorizeEvents = (eventsToFilter: EventWithVolunteers[]) => {
@@ -117,16 +134,16 @@ function OrgMyEvents() {
     }
   };
 
-  // Handle removing volunteer from event
-  const handleRemoveVolunteer = async (eventId: number, volunteerId: number) => {
+  // Handle removing volunteer from event - using user ID as identifier
+  const handleRemoveVolunteer = async (eventId: number, userId: number) => {
     if (window.confirm('Are you sure you want to remove this volunteer from the event?')) {
       try {
-        await removeVolunteerFromEvent(eventId, volunteerId);
+        await removeVolunteerFromEvent(eventId, userId);
         // Update the local state
         setEvents(prevEvents => 
           prevEvents.map(event => 
             event.id === eventId 
-              ? { ...event, volunteers: event.volunteers.filter(v => v.id !== volunteerId) }
+              ? { ...event, volunteers: event.volunteers.filter(v => v.user_id !== userId) }
               : event
           )
         );
@@ -209,10 +226,10 @@ function OrgMyEvents() {
                   <div className="volunteers-list">
                     {event.volunteers.length > 0 ? (
                       event.volunteers.map((volunteer) => (
-                        <div key={volunteer.id} className="volunteer-item">
+                        <div key={volunteer.user_id} className="volunteer-item">
                           <div 
                             className="volunteer-basic-info"
-                            onClick={() => setExpandedVolunteer(expandedVolunteer === volunteer.id ? null : volunteer.id)}
+                            onClick={() => setExpandedVolunteer(expandedVolunteer === volunteer.user_id ? null : volunteer.user_id)}
                           >
                             <span className="volunteer-name">{volunteer.full_name}</span>
                             <div className="volunteer-actions">
@@ -227,12 +244,12 @@ function OrgMyEvents() {
                                 ✕
                               </button>
                               <span className="expand-volunteer-icon">
-                                {expandedVolunteer === volunteer.id ? '▼' : '▶'}
+                                {expandedVolunteer === volunteer.user_id ? '▼' : '▶'}
                               </span>
                             </div>
                           </div>
                           
-                          {expandedVolunteer === volunteer.id && (
+                          {expandedVolunteer === volunteer.user_id && (
                             <div className="volunteer-details">
                               <div className="detail-row">
                                 <strong>Age:</strong> {volunteer.age}
@@ -241,7 +258,7 @@ function OrgMyEvents() {
                                 <strong>Location:</strong> {volunteer.school}
                               </div>
                               <div className="detail-row">
-                                <strong>Username:</strong> {volunteer.email}
+                                <strong>Email:</strong> {volunteer.email}
                               </div>
                               {volunteer.phone && (
                                 <div className="detail-row">
@@ -306,18 +323,18 @@ function OrgMyEvents() {
                   <div className="volunteers-list">
                     {event.volunteers.length > 0 ? (
                       event.volunteers.map((volunteer) => (
-                        <div key={volunteer.id} className="volunteer-item">
+                        <div key={volunteer.user_id} className="volunteer-item">
                           <div 
                             className="volunteer-basic-info"
-                            onClick={() => setExpandedVolunteer(expandedVolunteer === volunteer.id ? null : volunteer.id)}
+                            onClick={() => setExpandedVolunteer(expandedVolunteer === volunteer.user_id ? null : volunteer.user_id)}
                           >
                             <span className="volunteer-name">{volunteer.full_name}</span>
                             <span className="expand-volunteer-icon">
-                              {expandedVolunteer === volunteer.id ? '▼' : '▶'}
+                              {expandedVolunteer === volunteer.user_id ? '▼' : '▶'}
                             </span>
                           </div>
                           
-                          {expandedVolunteer === volunteer.id && (
+                          {expandedVolunteer === volunteer.user_id && (
                             <div className="volunteer-details">
                               <div className="detail-row">
                                 <strong>Age:</strong> {volunteer.age}
@@ -326,7 +343,7 @@ function OrgMyEvents() {
                                 <strong>Location:</strong> {volunteer.school}
                               </div>
                               <div className="detail-row">
-                                <strong>Username:</strong> {volunteer.email}
+                                <strong>Email:</strong> {volunteer.email}
                               </div>
                               {volunteer.phone && (
                                 <div className="detail-row">

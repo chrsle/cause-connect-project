@@ -141,7 +141,7 @@ router.get('/opportunities/:id/volunteers', authenticate, async (req, res) => {
     const eventId = req.params.id;
     const userId = req.body.userid;
     
-    
+    // Verify the event exists and belongs to the authenticated user
     const eventOwner = await db.execute(
       `SELECT user_id FROM opportunities WHERE id = ?`,
       [eventId]
@@ -165,7 +165,7 @@ router.get('/opportunities/:id/volunteers', authenticate, async (req, res) => {
         sp.school,
         sp.bio,
         sp.interests,
-        u.username as email,
+        u.email,
         vs.signup_date
       FROM volunteer_signups vs
       JOIN users u ON vs.user_id = u.id
@@ -174,7 +174,21 @@ router.get('/opportunities/:id/volunteers', authenticate, async (req, res) => {
       ORDER BY vs.signup_date ASC
     `, [eventId]);
     
-    res.json(volunteers.rows);
+    // Format the response to match expected frontend structure
+    const formattedVolunteers = volunteers.rows.map(volunteer => ({
+      id: volunteer.id,
+      user_id: volunteer.user_id,
+      full_name: volunteer.full_name,
+      age: volunteer.age,
+      school: volunteer.school,
+      bio: volunteer.bio,
+      interests: volunteer.interests,
+      email: volunteer.email,
+      phone: null, // Add phone field
+      signup_date: volunteer.signup_date
+    }));
+    
+    res.json(formattedVolunteers);
   } catch (error) {
     console.error('Error fetching event volunteers:', error);
     res.status(500).json({ error: 'Failed to fetch volunteers' });

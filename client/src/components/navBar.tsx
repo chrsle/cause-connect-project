@@ -22,7 +22,7 @@ interface StudentProfile {
   school: string;
   bio: string;
   interests: string;
-  username?: string; // Add username from users table
+  email?: string; // Add email from users table
 }
 
 interface OrganizationProfile {
@@ -30,7 +30,7 @@ interface OrganizationProfile {
   location: number;
   category: string;
   statement: string;
-  username?: string; // Add username from users table
+  email?: string; // Add email from users table
 }
 
 const NavBar: React.FC<NavBarProps> = ({ userType }) => {
@@ -71,29 +71,29 @@ const NavBar: React.FC<NavBarProps> = ({ userType }) => {
         setLoading(true);
         setError(null);
         
-        // Use /me endpoint for both user types since it returns username
+        // Use /me endpoint for both user types since it returns email
         const data = await makeRequest(`${API_BASE}/me`, 'GET');
         console.log('User data received:', data); // Debug log
         
         if (userType === "student") {
           if (data && data.profile) {
-            // Add username from the main user data to the profile
-            const profileWithUsername = {
+            // Add email from the main user data to the profile
+            const profileWithEmail = {
               ...data.profile,
-              username: data.username
+              email: data.email
             };
-            setStudentProfile(profileWithUsername);
+            setStudentProfile(profileWithEmail);
           } else {
             setError('No student profile found');
           }
         } else {
           if (data && data.profile) {
-            // Add username from the main user data to the profile
-            const profileWithUsername = {
+            // Add email from the main user data to the profile
+            const profileWithEmail = {
               ...data.profile,
-              username: data.username
+              email: data.email
             };
-            setOrganizationProfile(profileWithUsername);
+            setOrganizationProfile(profileWithEmail);
           } else {
             setError('No organization profile found');
           }
@@ -138,24 +138,24 @@ const NavBar: React.FC<NavBarProps> = ({ userType }) => {
       if (organizationProfile) {
         return {
           name: organizationProfile.nonprofit_name,
-          username: organizationProfile.username || 'No username'
+          email: organizationProfile.email || 'No email'
         };
       } else {
         return {
           name: dummyOrganization.name,
-          username: dummyOrganization.email // fallback to dummy data
+          email: dummyOrganization.email // fallback to dummy data
         };
       }
     } else {
       if (studentProfile) {
         return {
           name: studentProfile.full_name,
-          username: studentProfile.username || 'No username'
+          email: studentProfile.email || 'No email'
         };
       } else {
         return {
           name: dummyStudent.full_name,
-          username: dummyStudent.email // fallback to dummy data
+          email: dummyStudent.email // fallback to dummy data
         };
       }
     }
@@ -206,7 +206,7 @@ const NavBar: React.FC<NavBarProps> = ({ userType }) => {
                   ) : (
                     <>
                       <h4>{displayData.name}</h4>
-                      <p>{displayData.username}</p>
+                      <p>{displayData.email}</p>
                     </>
                   )}
                 </div>
@@ -219,7 +219,7 @@ const NavBar: React.FC<NavBarProps> = ({ userType }) => {
                   ) : (
                     <button className="dropdown-list" onClick={() => (window.location.href = 'user-profile')}>
                     View Profile
-                  </button>
+                    </button>
                   )}
                   
                 </div>

@@ -1,7 +1,7 @@
 //Defining types for the application
 export type User = {
     id: number;
-    username: string;
+    email: string; // Changed from username to email to match schema
     user_type: "student" | "organization";
 }
 
@@ -14,9 +14,10 @@ export type Student = {
     bio: string;
     interests: string;
     email: string;
-    phone: string;
-    upcoming_events: number;
-    past_events: number;
+    phone?: string; // Made optional since it's not in  schema
+    upcoming_events?: number; // Made optional
+    past_events?: number; // Made optional
+    signup_date?: string; // Added for volunteer signup tracking
 }
 
 export type Organization = {

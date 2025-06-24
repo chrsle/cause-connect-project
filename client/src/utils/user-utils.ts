@@ -7,15 +7,15 @@ export interface AuthResponse {
   nextRoute?: string;
 }
 
-export const signup = async (username: string, password: string, usertype: string): Promise<AuthResponse> => {
+export const signup = async (email: string, password: string, usertype: string): Promise<AuthResponse> => {
   try {
-    console.log(username, password, usertype);
+    console.log(email, password, usertype);
     const res = await fetch(`${API_BASE}/signup`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ username, password, usertype}),
+      body: JSON.stringify({ email, password, usertype}), // Changed from username to email
       credentials: "include",
     });
 

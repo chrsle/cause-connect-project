@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 const express = require("express");
 const jwt = require("jsonwebtoken");
@@ -24,6 +23,7 @@ app.use(cors({
 app.use('/api', opportunitiesRouter); 
 app.use('/api', reserveRouter);
 app.use('/api', userRouter);
+
 // Database connection
 const db = createClient({
   url: process.env.TURSO_DATABASE_URL,
@@ -42,6 +42,33 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Helper: Email validation function
+const validateEmail = (email) => {
+  if (!email) return false;
+  
+  // Check for @ symbol
+  if (!email.includes('@')) return false;
+  
+  // Split by @ and check for domain part
+  const parts = email.split('@');
+  if (parts.length !== 2) return false;
+  
+  const [localPart, domainPart] = parts;
+  
+  // Check that both parts exist
+  if (!localPart || !domainPart) return false;
+  
+  // Check that domain part contains a dot
+  if (!domainPart.includes('.')) return false;
+  
+  // Check that there's content after the dot
+  const domainParts = domainPart.split('.');
+  const lastPart = domainParts[domainParts.length - 1];
+  if (!lastPart || lastPart.length < 2) return false;
+  
+  return true;
+};
+
 // ===== ROUTES =====
 
 // Health check
@@ -49,43 +76,41 @@ app.get("/", (req, res) => {
   res.send("API is running");
 });
 
-// Signup
+// Signup - Updated for email
 app.post("/api/signup", async (req, res) => {
-  const { username, password, usertype } = req.body;
-  // console.log("[SIGNUP] Request body:", req.body);
-  // console.log("[SIGNUP] Usertype:", usertype);
-  // console.log("[SIGNUP] Username:", username);
-  // console.log("[SIGNUP] Password:", password ? password : "undefined");
-  if (!username) return res.status(400).send("You must provide a username.");
-  if (username.length < 3) return res.status(400).send("Username must be at least 3 characters.");
-  if (!/^[a-zA-Z0-9]+$/.test(username)) {
-    return res.status(400).send("Username can only contain letters and numbers.");
+  const { email, password, usertype } = req.body;
+  
+  // Email validation
+  if (!email) return res.status(400).send("You must provide an email address.");
+  if (!validateEmail(email)) {
+    return res.status(400).send("Please provide a valid email address.");
   }
 
+  // Password validation (keeping existing validation)
   if (!password) return res.status(400).send("You must provide a password.");
   if (password.length < 12) return res.status(400).send("Password must be at least 12 characters.");
   if (password.length > 70) return res.status(400).send("Password cannot exceed 70 characters.");
 
+  // Usertype validation
   if (!["student", "nonprofit"].includes(usertype)) {
     return res.status(400).send("Usertype must be either 'student' or 'nonprofit'.");
   }
 
+  // Check if email already exists
   const existingUser = await db.execute({
-    sql: "SELECT * FROM users WHERE username = ?",
-    args: [username]
+    sql: "SELECT * FROM users WHERE email = ?",
+    args: [email]
   });
 
   if (existingUser.rows.length > 0) {
-    return res.status(400).send("That username is already taken.");
+    return res.status(400).send("That email address is already registered.");
   }
-
-  
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     await db.execute({
-      sql: "INSERT INTO users (username, password, user_type) VALUES (?, ?, ?)",
-      args: [username, hashedPassword, usertype],
+      sql: "INSERT INTO users (email, password, user_type) VALUES (?, ?, ?)",
+      args: [email, hashedPassword, usertype],
     });
     res.status(201).send("User created");
   } catch (err) {
@@ -94,31 +119,42 @@ app.post("/api/signup", async (req, res) => {
   }
 });
 
-// Login - FIXED
+// Login - Fixed to properly use email
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
+  
+  if (!email || !password) {
+    return res.status(400).send("Email and password are required");
+  }
+  
   try {
     const result = await db.execute({
-      sql: "SELECT * FROM users WHERE username = ?",
+      sql: "SELECT * FROM users WHERE email = ?",
       args: [email],
     });
+    
     const user = result.rows[0];
     if (!user) return res.status(400).send("Invalid credentials");
+    
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).send("Invalid credentials");
-    // FIX: Use username instead of email
+    
+    // Create JWT token with email instead of username
     const token = jwt.sign(
-      { username: user.username, userType: user.user_type, id: user.id }, 
+      { email: user.email, userType: user.user_type, id: user.id }, 
       process.env.JWTSECRET,
       { expiresIn: "1h" }
     );
+    
     res.cookie("token", token, {
       httpOnly: true,
       sameSite: "lax",
       secure: false,
     });
+    
     const userType = user.user_type;
     let nextRoute = "";
+    
     if (userType === "nonprofit") {
       const nonprofitProfile = await db.execute({
         sql: "SELECT 1 FROM nonprofit_profiles WHERE user_id = ?",
@@ -134,6 +170,7 @@ app.post("/api/login", async (req, res) => {
     } else {
       return res.status(400).send("Unrecognized user type");
     }
+    
     return res.json({
       success: true,
       userType,
@@ -145,18 +182,14 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-
-
-
-
-
+// Get current user info - Updated for email
 app.get("/api/me", authenticateToken, async (req, res) => {
   const { id, userType } = req.user;  // From the JWT token
 
   try {
-    // Base user info from `users` table
+    // Base user info from `users` table - updated to use email
     const baseResult = await db.execute({
-      sql: "SELECT id, username, user_type FROM users WHERE id = ?",
+      sql: "SELECT id, email, user_type FROM users WHERE id = ?",
       args: [id],
     });
 
@@ -190,20 +223,18 @@ app.get("/api/me", authenticateToken, async (req, res) => {
   }
 });
 
-
 // Logout
-
 app.post("/api/logout", (req, res) => {
   res.clearCookie("token");
   res.send("Logged out");
 });
 
-// Session check
+// Session check - Updated to return email
 app.get("/api/session", authenticateToken, (req, res) => {
-  res.json({ email: req.user.username });
+  res.json({ email: req.user.email });
 });
 
-// Protected example route
+// Protected example route - Updated to use email
 app.get("/api/protected", authenticateToken, (req, res) => {
   res.send(`Welcome ${req.user.email}, this is protected data.`);
 });

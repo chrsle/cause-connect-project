@@ -13,7 +13,7 @@ interface StudentProfile {
 }
 
 interface UserData {
-  username: string;
+  email: string;
   profile: StudentProfile;
 }
 
@@ -41,23 +41,10 @@ function UserProfile() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const availableInterests = [
-  "Animals",
-  "Children & Youth", 
-  "Cultural & Education",
-  "Disabilities",
-  "Disaster Relief",
-  "Elderly",
-  "Environment",
-  "Global – Locale Based",
-  "Health & Disease",
-  "Homeless",
-  "Hunger & Poverty",
-  "International",
-  "Military Charities",
-  "Racial Equality",
-  "Service & Benevolence Clubs",
-  "Women's Issues",
-  "Sports"
+  "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
+              "Environment", "Global – Local Based", "Health & Disease", "Homeless", "Hunger & Poverty",
+              "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", 
+              "Sports", "Music/Art", "Engineering", "Mathematics", "Science", "Social Justice"
 ];
 
   // Fetch user profile data on component mount
@@ -94,9 +81,9 @@ function UserProfile() {
         console.log('User data received:', data);
         
         if (data && data.profile) {
-          // Set the user data with both username and profile
+          // Set the user data with both email and profile
           setUserData({
-            username: data.username,
+            email: data.email,
             profile: data.profile
           });
           
@@ -314,17 +301,17 @@ function UserProfile() {
 
             <div className="info-item">
               <h2 className="info-label">
-                <span className="info-icon">✉️</span> Username
+                <span className="info-icon">✉️</span> Email
               </h2>
               {editMode ? (
                 <input 
-                  type="text" 
+                  type="email" 
                   className="info-input" 
-                  value={userData?.username || ""}
-                  disabled // Username shouldn't be editable from profile
+                  value={userData?.email || ""}
+                  disabled // Email shouldn't be editable from profile
                 />
               ) : (
-                <p className="user-info">{userData?.username || "No username"}</p>
+                <p className="user-info">{userData?.email || "No email"}</p>
               )}
             </div>
 

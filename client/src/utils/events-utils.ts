@@ -159,7 +159,7 @@ export const getEventVolunteers = async (eventId: number) => {
   }
 };
 
-// Function to remove a volunteer from an event
+// Function to remove a volunteer from an event - using user ID as identifier
 export const removeVolunteerFromEvent = async (eventId: number, userId: number) => {
   try {
     const data = await makeRequest(`${API_BASE}/opportunities/${eventId}/volunteers/${userId}`, 'DELETE');

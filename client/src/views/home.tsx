@@ -50,7 +50,7 @@ const Home = () => {
               <input
                 type="text"
                 id="username"
-                placeholder="Username"
+                placeholder="Email"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
