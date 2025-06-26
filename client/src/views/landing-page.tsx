@@ -24,6 +24,37 @@ const LandingPage = () => {
   const [locationDetected, setLocationDetected] = useState(false);
   const [locationManuallyChanged, setLocationManuallyChanged] = useState(false);
 
+  // Helper function to check if an event is in the future
+  const isEventInFuture = (event: Event) => {
+    try {
+      const currentDateTime = new Date();
+      
+      // Parse event date without timezone conversion
+      const [year, month, day] = event.startDate.split('-').map(Number);
+      const eventDate = new Date(year, month - 1, day);
+      
+      // Use raw time for comparison (use rawTime if available, otherwise parse startTime)
+      const timeToUse = event.rawTime || event.startTime;
+      if (!timeToUse) {
+        return false; // If no time, consider it past to be safe
+      }
+      
+      const [hours, minutes] = timeToUse.split(':').map(Number);
+      eventDate.setHours(hours, minutes, 0, 0);
+      
+      // Return true only if event datetime is in the future
+      return eventDate > currentDateTime;
+    } catch (error) {
+      console.error('Error checking if event is in future:', event, error);
+      return false; // If error parsing, consider it past to be safe
+    }
+  };
+
+  // Filter events to only show future events for students
+  const filterFutureEvents = (events: Event[]) => {
+    return events.filter(event => isEventInFuture(event));
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -46,8 +77,12 @@ const LandingPage = () => {
 
         // Fetch all events initially
         const eventsData = await getAllOpportunities();
-        setAllEvents(eventsData);
-        setFilteredEvents(eventsData);
+        
+        // Filter to only show future events for students
+        const futureEvents = filterFutureEvents(eventsData);
+        
+        setAllEvents(futureEvents);
+        setFilteredEvents(futureEvents);
         
       } catch (err: any) {
         console.error("Error fetching data:", err);
@@ -71,7 +106,11 @@ const LandingPage = () => {
       try {
         setIsLoadingLocation(true);
         const nearbyEvents = await getNearbyOpportunities(currentLocation, parseInt(selectedDistance));
-        setFilteredEvents(nearbyEvents);
+        
+        // Filter nearby events to only show future events for students
+        const futureNearbyEvents = filterFutureEvents(nearbyEvents);
+        
+        setFilteredEvents(futureNearbyEvents);
       } catch (error) {
         console.error("Error filtering events by location:", error);
         // Fallback to all events if location filtering fails
@@ -223,7 +262,7 @@ const LandingPage = () => {
                 <span>Loading...</span>
               ) : (
                 <span>
-                  {filteredEvents.length} events found
+                  {filteredEvents.length} upcoming events found
                   {selectedDistance !== 'all' && ` within ${selectedDistance} miles`}
                 </span>
               )}
@@ -236,12 +275,12 @@ const LandingPage = () => {
           {userData?.interests ? (
             <>
               <p style={{ margin: '10px 0', fontSize: '14px' }}>
-                Events from organizations matching your interests: <strong>{userData.interests}</strong>
+                Upcoming events from organizations matching your interests: <strong>{userData.interests}</strong>
                 {selectedDistance !== 'all' && ` (within ${selectedDistance} miles)`}
               </p>
               {/*Events count bar */}
               <p className="number_of_events">
-                You have {interestMatchedEvents.length} event{interestMatchedEvents.length !== 1 ? 's' : ''} matching your interests
+                You have {interestMatchedEvents.length} upcoming event{interestMatchedEvents.length !== 1 ? 's' : ''} matching your interests
                 {selectedDistance !== 'all' && ` within ${selectedDistance} miles`}
               </p>
               {isLoadingLocation ? (
@@ -254,7 +293,7 @@ const LandingPage = () => {
                 />
               ) : (
                 <div style={{ textAlign: 'center', color: '#666', margin: '20px 0', padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
-                  <p>No events found from organizations matching your current interests{selectedDistance !== 'all' && ` within ${selectedDistance} miles`}.</p>
+                  <p>No upcoming events found from organizations matching your current interests{selectedDistance !== 'all' && ` within ${selectedDistance} miles`}.</p>
                   {selectedDistance !== 'all' ? (
                     <p>Try increasing your distance range or check out the "Explore New Causes" section below!</p>
                   ) : (
@@ -278,7 +317,7 @@ const LandingPage = () => {
             <input
               type="text"
               className="search-bar"
-              placeholder="Search for events by title, location, or organization..."
+              placeholder="Search for upcoming events by title, location, or organization..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -287,7 +326,7 @@ const LandingPage = () => {
           {/* Show search results info */}
           {searchQuery.trim() && (
             <p style={{ margin: '10px 0', color: '#666', textAlign: 'center' }}>
-              {exploreEvents.length} event{exploreEvents.length !== 1 ? 's' : ''} found for "{searchQuery}"
+              {exploreEvents.length} upcoming event{exploreEvents.length !== 1 ? 's' : ''} found for "{searchQuery}"
               {selectedDistance !== 'all' && ` within ${selectedDistance} miles`}
             </p>
           )}
@@ -302,8 +341,16 @@ const LandingPage = () => {
           {/* Show message when not searching and there are more events */}
           {!searchQuery.trim() && !isLoadingLocation && searchFilteredEvents.length > 8 && (
             <p style={{ margin: '20px 0', color: '#666', textAlign: 'center', fontStyle: 'italic' }}>
-              Showing 8 of {searchFilteredEvents.length} events{selectedDistance !== 'all' && ` within ${selectedDistance} miles`}. Use the search bar to find specific events.
+              Showing 8 of {searchFilteredEvents.length} upcoming events{selectedDistance !== 'all' && ` within ${selectedDistance} miles`}. Use the search bar to find specific events.
             </p>
+          )}
+          
+          {/* Show message when no upcoming events are available */}
+          {!isLoadingLocation && exploreEvents.length === 0 && (
+            <div style={{ textAlign: 'center', color: '#666', margin: '20px 0', padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+              <p>No upcoming events available{selectedDistance !== 'all' && ` within ${selectedDistance} miles`}.</p>
+              {selectedDistance !== 'all' && <p>Try increasing your distance range to see more events!</p>}
+            </div>
           )}
         </div>
       </div>

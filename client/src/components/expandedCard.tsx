@@ -342,7 +342,16 @@ const ExpandedCardPortal: React.FC<{
               >
                 {getJoinButtonText()}
               </button>
-            ) : null
+            ) : (
+              <p className="past-event-message" style={{ 
+                color: '#666', 
+                fontStyle: 'italic', 
+                textAlign: 'center', 
+                margin: '20px 0' 
+              }}>
+                This event has already occurred.
+              </p>
+            )
           ) : !isPast ? (
             isEditing ? (
               <>
@@ -384,7 +393,16 @@ const ExpandedCardPortal: React.FC<{
                 )}
               </>    
             )
-          ) : null}
+          ) : (
+            <p className="past-event-message" style={{ 
+              color: '#666', 
+              fontStyle: 'italic', 
+              textAlign: 'center', 
+              margin: '20px 0' 
+            }}>
+              This event has already occurred and cannot be edited.
+            </p>
+          )}
         </div>
       </div>
     </>,

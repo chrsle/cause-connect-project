@@ -33,6 +33,35 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
     };
   }, [isOpen]);
 
+  // Helper function to determine if an event is past
+  const isEventPast = (event: Event) => {
+    const startDate = event.startDate;
+    const startTime = event.rawTime || event.startTime;
+    
+    // Safety checks for required fields
+    if (!startDate || !startTime) {
+      return false;
+    }
+
+    try {
+      const currentDateTime = new Date();
+      
+      // Parse event date without timezone conversion
+      const [year, month, day] = startDate.split('-').map(Number);
+      const eventDate = new Date(year, month - 1, day);
+      
+      // Parse and set the event time
+      const [hours, minutes] = startTime.split(':').map(Number);
+      eventDate.setHours(hours, minutes, 0, 0);
+      
+      // Event is past if the event datetime has already occurred
+      return eventDate < currentDateTime;
+    } catch (error) {
+      console.error('Error checking if event is past:', event, error);
+      return false;
+    }
+  };
+
   // Get the correct field value with fallbacks for different data structures
   const getEventField = (field: string) => {
     const fieldMappings: { [key: string]: string[] } = {
@@ -260,22 +289,7 @@ const formatTime = (timeString: string) => {
           body: displayDescription,
         }}
         userType={userType}
-        isPast={(() => {
-          // Fix timezone issue in date comparison with safety checks
-          if (!displayEndDate) {
-            return false;
-          }
-          
-          try {
-            const [year, month, day] = displayEndDate.split('-').map(Number);
-            const eventEndDate = new Date(year, month - 1, day);
-            eventEndDate.setHours(23, 59, 59, 999); // End of day
-            return eventEndDate < new Date();
-          } catch (error) {
-            console.error('Error checking if event is past:', displayEndDate, error);
-            return false;
-          }
-        })()}
+        isPast={isEventPast(event)}
         onEventUpdated={onEventUpdated}
       />
     </>
