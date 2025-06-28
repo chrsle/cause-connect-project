@@ -68,7 +68,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
       'startDate': ['startDate', 'date', 'event_date'],
       'endDate': ['endDate', 'end_date'],
       'startTime': ['startTime', 'time', 'event_time', 'rawTime'],
-      'endTime': ['endTime', 'end_time'],
+      'endTime': ['endTime', 'end_time'], // Fixed: Added 'end_time' mapping
       'organization': ['organization', 'nonprofit_name', 'organizer'],
       'description': ['body', 'description', 'event_description'],
       'location': ['location', 'event_location'],
@@ -114,36 +114,45 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
     }
   };
 
-  // Format time for display
- // Format time for display - Convert from military to 12-hour format (alternative)
-const formatTime = (timeString: string) => {
-  // Safety check for undefined/null timeString
-  if (!timeString) {
-    return 'Time TBD';
-  }
-  // Use the formatted time from backend if available
-  if (event.formattedTime && timeString === getEventField('startTime')) {
-    return event.formattedTime;
-  }
-  try {
-    // Convert military time (HH:MM) to 12-hour format
-    const [hours, minutes] = timeString.split(':').map(Number);
-    
-    // Determine AM/PM
-    const period = hours >= 12 ? 'PM' : 'AM';
-    
-    // Convert to 12-hour format
-    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    
-    // Format minutes with leading zero if needed
-    const displayMinutes = minutes.toString().padStart(2, '0');
-    
-    return `${displayHours}:${displayMinutes} ${period}`;
-  } catch (error) {
-    console.error('Error formatting time:', timeString, error);
-    return timeString; // Return original if formatting fails
-  }
-};
+  // Format time for display - Convert from military to 12-hour format
+  const formatTime = (timeString: string) => {
+    // Safety check for undefined/null timeString
+    if (!timeString) {
+      return 'Time TBD';
+    }
+    // Use the formatted time from backend if available
+    if (event.formattedTime && timeString === getEventField('startTime')) {
+      return event.formattedTime;
+    }
+    try {
+      // Convert military time (HH:MM) to 12-hour format
+      const [hours, minutes] = timeString.split(':').map(Number);
+      
+      // Determine AM/PM
+      const period = hours >= 12 ? 'PM' : 'AM';
+      
+      // Convert to 12-hour format
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      
+      // Format minutes with leading zero if needed
+      const displayMinutes = minutes.toString().padStart(2, '0');
+      
+      return `${displayHours}:${displayMinutes} ${period}`;
+    } catch (error) {
+      console.error('Error formatting time:', timeString, error);
+      return timeString; // Return original if formatting fails
+    }
+  };
+
+  // Helper function to format time range display
+  const formatTimeRange = (startTime: string, endTime?: string) => {
+    const formattedStart = formatTime(startTime);
+    if (!endTime) {
+      return formattedStart;
+    }
+    const formattedEnd = formatTime(endTime);
+    return `${formattedStart} - ${formattedEnd}`;
+  };
 
   // Check if event is happening today or soon
   const isUpcoming = () => {
@@ -191,10 +200,12 @@ const formatTime = (timeString: string) => {
   const displayStartDate = getEventField('startDate') as string;
   const displayEndDate = getEventField('endDate') as string;
   const displayStartTime = getEventField('startTime') as string;
-  const displayEndTime = getEventField('endTime') as string;
+  const displayEndTime = getEventField('endTime') as string; // Get end time properly
   const displayLocation = getEventField('location') as string || 'Location TBD';
   const displayOrganization = getEventField('organization') as string;
   const displayDescription = getEventField('description') as string;
+
+  console.log('End time in EventCard:', displayEndTime); // Debug log
 
   return (
     <>
@@ -234,17 +245,9 @@ const formatTime = (timeString: string) => {
             <div className="datetime-group">
               <label className="datetime-label">🕐 Time</label>
               <div className="datetime-content">
-                <span className="event-card__starttime">
-                  {formatTime(displayStartTime)}
+                <span className="event-card__time-range">
+                  {formatTimeRange(displayStartTime, displayEndTime)}
                 </span>
-                {displayEndTime && (
-                  <>
-                    <span className="time-separator">-</span>
-                    <span className="event-card__endtime">
-                      {formatTime(displayEndTime)}
-                    </span>
-                  </>
-                )}
               </div>
             </div>
           </div>
@@ -283,7 +286,7 @@ const formatTime = (timeString: string) => {
           startDate: displayStartDate,
           endDate: displayEndDate,
           startTime: displayStartTime,
-          endTime: displayEndTime,
+          endTime: displayEndTime, // Pass end time to modal
           location: displayLocation,
           organization: displayOrganization,
           body: displayDescription,

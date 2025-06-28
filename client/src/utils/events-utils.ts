@@ -74,14 +74,15 @@ export const getUserOpportunities = async () => {
 };
 
 // Function to create a new opportunity
-export const createOpportunity = async (nonprofitName: string, title: string, description: string, date: string, time: string, location: string) => {
+export const createOpportunity = async (nonprofitName: string, title: string, description: string, date: string, time: string, location: string, endTime?: string) => {
   const opportunityData = {
     nonprofit_name: nonprofitName,
     title,
     description,
     date,
     time,
-    location
+    location,
+    end_time: endTime
   };
 
   try {
@@ -94,14 +95,15 @@ export const createOpportunity = async (nonprofitName: string, title: string, de
 };
 
 // Function to update an existing opportunity
-export const updateOpportunity = async (id: number, nonprofitName: string, title: string, description: string, date: string, time: string, location: string) => {
+export const updateOpportunity = async (id: number, nonprofitName: string, title: string, description: string, date: string, time: string, location: string, endTime?: string) => {
   const opportunityData = {
     nonprofit_name: nonprofitName,
     title,
     description,
     date,
     time,
-    location
+    location,
+    end_time: endTime
   };
 
   try {

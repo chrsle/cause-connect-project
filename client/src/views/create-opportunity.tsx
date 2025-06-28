@@ -9,6 +9,7 @@ interface FormData {
   name: string;
   date: string;
   startTime: string;
+  endTime: string;
   location: string;
   description: string;
 }
@@ -26,6 +27,7 @@ function CreateEvent() {
     name: '',
     date: '',
     startTime: '',
+    endTime: '',
     location: '',
     description: ''
   });
@@ -88,6 +90,22 @@ function CreateEvent() {
       isValid = false;
     }
 
+    if (!formData.endTime) {
+      newErrors.endTime = 'End time is required';
+      isValid = false;
+    }
+
+    // Validate end time if both start and end times are provided
+    if (formData.endTime && formData.startTime) {
+      const startMinutes = timeToMinutes(formData.startTime);
+      const endMinutes = timeToMinutes(formData.endTime);
+      
+      if (endMinutes <= startMinutes) {
+        newErrors.endTime = 'End time must be after start time';
+        isValid = false;
+      }
+    }
+
     if (!formData.location.trim()) {
       newErrors.location = 'Location is required';
       isValid = false;
@@ -100,6 +118,37 @@ function CreateEvent() {
 
     setErrors(newErrors);
     return isValid;
+  };
+
+  // Helper function to convert time string to minutes for comparison
+  const timeToMinutes = (timeString: string): number => {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // Helper function to format date for display without timezone issues
+  const formatDateDisplay = (dateString: string) => {
+  if (!dateString) return '';
+  
+  const [year, month, day] = dateString.split('-');
+  const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  
+  return date.toLocaleDateString();
+};
+
+  // Helper function to format time for display
+  const formatTimeDisplay = (timeString: string) => {
+    if (!timeString) return '';
+    
+    try {
+      const [hours, minutes] = timeString.split(':').map(Number);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      const displayMinutes = minutes.toString().padStart(2, '0');
+      return `${displayHours}:${displayMinutes} ${period}`;
+    } catch (error) {
+      return timeString;
+    }
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -129,7 +178,8 @@ function CreateEvent() {
           formData.description,
           formData.date,
           formData.startTime,
-          formData.location
+          formData.location,
+          formData.endTime
         );
         
         console.log('Opportunity created successfully:', result);
@@ -302,15 +352,17 @@ function CreateEvent() {
                         name="date"
                         value={formData.date}
                         onChange={handleChange}
-                        min={getTodayLocalDate()} // FIXED: Now uses PST instead of UTC
+                        min={getTodayLocalDate()}
                         className={errors.date ? 'error' : ''}
                       />
                       {errors.date && <p className="error-message">{errors.date}</p>}
                     </div>
+                  </div>
 
+                  <div className="form-row">
                     <div className="form-group">
                       <label className="form-label" htmlFor="startTime">
-                        Time <span className="required">*</span>
+                        Start Time <span className="required">*</span>
                       </label>
                       <input 
                         type="time" 
@@ -321,7 +373,21 @@ function CreateEvent() {
                         className={errors.startTime ? 'error' : ''}
                       />
                       {errors.startTime && <p className="error-message">{errors.startTime}</p>}
-                      <p className="field-hint">Event start time</p>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="endTime">
+                        End Time <span className="required">*</span>
+                      </label>
+                      <input 
+                        type="time" 
+                        id="endTime"
+                        name="endTime"
+                        value={formData.endTime}
+                        onChange={handleChange}
+                        className={errors.endTime ? 'error' : ''}
+                      />
+                      {errors.endTime && <p className="error-message">{errors.endTime}</p>}
                     </div>
                   </div>
 
@@ -375,10 +441,12 @@ function CreateEvent() {
                   <p>{formData.name}</p>
                   
                   <h4><strong>Date:</strong></h4>
-                  <p>{new Date(formData.date).toLocaleDateString()}</p>
-                  
+                  <p>{formatDateDisplay(formData.date)}</p>                  
                   <h4><strong>Time:</strong></h4>
-                  <p>{formData.startTime}</p>
+                  <p>
+                    {formatTimeDisplay(formData.startTime)}
+                    {formData.endTime && ` - ${formatTimeDisplay(formData.endTime)}`}
+                  </p>
                   
                   <h4><strong>Location:</strong></h4>
                   <p>{formData.location}</p>
@@ -404,7 +472,7 @@ function CreateEvent() {
                   <h4>Quick Summary:</h4>
                   <ul>
                     <li><strong>Event:</strong> {formData.name}</li>
-                    <li><strong>Date & Time:</strong> {new Date(formData.date).toLocaleDateString()} at {formData.startTime}</li>
+                    <li><strong>Date & Time:</strong> {formatDateDisplay(formData.date)} at {formatTimeDisplay(formData.startTime)}{formData.endTime && ` - ${formatTimeDisplay(formData.endTime)}`}</li>
                     <li><strong>Location:</strong> {formData.location}</li>
                     <li><strong>Organization:</strong> {organizationProfile.nonprofit_name}</li>
                   </ul>

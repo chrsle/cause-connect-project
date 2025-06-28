@@ -24,9 +24,33 @@ const ExpandedCardPortal: React.FC<{
 
   const navigate = useNavigate();
 
+  // Get the correct field value with fallbacks for different data structures
+  const getEventField = (field: string, eventData: Event = event) => {
+    const fieldMappings: { [key: string]: string[] } = {
+      'startDate': ['startDate', 'date', 'event_date'],
+      'endDate': ['endDate', 'end_date'],
+      'startTime': ['startTime', 'time', 'event_time', 'rawTime'],
+      'endTime': ['endTime', 'end_time'], // Fixed: Added 'end_time' mapping
+      'organization': ['organization', 'nonprofit_name', 'organizer'],
+      'description': ['body', 'description', 'event_description'],
+      'location': ['location', 'event_location'],
+      'title': ['title', 'name', 'event_name']
+    };
+
+    const possibleFields = fieldMappings[field] || [field];
+    
+    for (const fieldName of possibleFields) {
+      if (eventData[fieldName as keyof Event]) {
+        return eventData[fieldName as keyof Event];
+      }
+    }
+    
+    return null;
+  };
+
   // Format time from military to 12-hour format
   const formatTimeDisplay = (timeString: string) => {
-    if (!timeString) return 'Time TBD';
+    if (!timeString) return '';
     
     try {
       const [hours, minutes] = timeString.split(':').map(Number);
@@ -54,6 +78,16 @@ const ExpandedCardPortal: React.FC<{
     } catch (error) {
       return dateString;
     }
+  };
+
+  // Helper function to format time range display
+  const formatTimeRange = (startTime: string, endTime?: string) => {
+    const formattedStart = formatTimeDisplay(startTime);
+    if (!endTime) {
+      return formattedStart;
+    }
+    const formattedEnd = formatTimeDisplay(endTime);
+    return `${formattedStart} - ${formattedEnd}`;
   };
 
   // Check if student has already joined this event - FIXED VERSION
@@ -118,7 +152,8 @@ const ExpandedCardPortal: React.FC<{
         editedEvent.body,
         editedEvent.startDate,
         editedEvent.rawTime || editedEvent.startTime,
-        editedEvent.location
+        editedEvent.location,
+        editedEvent.endTime // Pass end time to the update function
       );
       
       setIsEditing(false);
@@ -209,6 +244,11 @@ const ExpandedCardPortal: React.FC<{
     return baseClass;
   };
 
+  // Get display values using the field mapping
+  const displayStartDate = getEventField('startDate') as string;
+  const displayStartTime = getEventField('startTime') as string;
+  const displayEndTime = getEventField('endTime') as string; // This will now properly get end_time from DB
+
   return createPortal(
     <>
       <div className="modal-overlay" onClick={onClose}></div>
@@ -267,9 +307,11 @@ const ExpandedCardPortal: React.FC<{
                     disabled={isLoading}
                   />
                 </div>
+              </div>
 
+              <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="startTime">Time</label>
+                  <label htmlFor="startTime">Start Time</label>
                   <input 
                     type="time" 
                     name="startTime" 
@@ -282,6 +324,18 @@ const ExpandedCardPortal: React.FC<{
                         rawTime: e.target.value 
                       }));
                     }}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="endTime">End Time <span style={{color: '#666', fontSize: '0.9em'}}></span></label>
+                  <input 
+                    type="time" 
+                    name="endTime" 
+                    id="endTime" 
+                    value={editedEvent.endTime || getEventField('endTime', editedEvent) as string || ''} 
+                    onChange={handleChange}
                     disabled={isLoading}
                   />
                 </div>
@@ -325,8 +379,8 @@ const ExpandedCardPortal: React.FC<{
           <>
             <h2 className="event-card__title">{event.title}</h2>
             <p><span className="event-card_label">Organization: </span>{event.organization}</p>
-            <p><span className="event-card_label">Date: </span>{formatDateDisplay(event.startDate)}</p>
-            <p><span className="event-card_label">Time: </span>{formatTimeDisplay(event.startTime)}</p>
+            <p><span className="event-card_label">Date: </span>{formatDateDisplay(displayStartDate)}</p>
+            <p><span className="event-card_label">Time: </span>{formatTimeRange(displayStartTime, displayEndTime)}</p>
             <p><span className="event-card_label">Location: </span>{event.location}</p>
             <p><span className="event-card_label">Description: </span>{event.body}</p>
           </>

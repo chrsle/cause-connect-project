@@ -276,22 +276,23 @@ router.get('/opportunities/nearby', async (req, res) => {
 
 // POST: Create a new opportunity
 router.post('/opportunities', authenticate, async (req, res) => {
-  const { nonprofit_name, title, description, date, time, location, userType } = req.body;
+  const { nonprofit_name, title, description, date, time, location, end_time, userType } = req.body; // Add end_time here
   if (userType !== 'nonprofit') {
     return res.status(403).json({ error: 'Only nonprofit users can create opportunities.' });
   } 
   
-  const { userid } = req.body; // Directly accessing userid from request body
+  const { userid } = req.body;
 
   if (!nonprofit_name || !title || !description || !date || !time || !location) {
     return res.status(400).json({ error: 'All fields are required.' });
   }
 
   try {
-    const query = `INSERT INTO opportunities (user_id, nonprofit_name, title, description, date, time, location) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    // Update query to include end_time
+    const query = `INSERT INTO opportunities (user_id, nonprofit_name, title, description, date, time, location, end_time) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    const result = await db.execute(query, [userid, nonprofit_name, title, description, date, time, location]);
+    const result = await db.execute(query, [userid, nonprofit_name, title, description, date, time, location, end_time]);
     res.status(201).json({ message: 'Opportunity created successfully.', opportunityId: Number(result.lastInsertRowid) });
   } catch (err) {
     console.error('Error creating opportunity:', err);
@@ -301,9 +302,9 @@ router.post('/opportunities', authenticate, async (req, res) => {
 
 // PUT: Edit an opportunity
 router.put('/opportunities/:id', authenticate, async (req, res) => {
-  const { nonprofit_name, title, description, date, time, location } = req.body;
+  const { nonprofit_name, title, description, date, time, location, end_time } = req.body; // Add end_time here
   const { id } = req.params;
-  const { userid } = req.body; // Directly accessing userid from request body
+  const { userid } = req.body;
 
   if (!nonprofit_name || !title || !description || !date || !time || !location) {
     return res.status(400).json({ error: 'All fields are required.' });
@@ -322,9 +323,10 @@ router.put('/opportunities/:id', authenticate, async (req, res) => {
       return res.status(403).json({ error: 'You are not authorized to edit this opportunity.' });
     }
 
-    const updateQuery = `UPDATE opportunities SET nonprofit_name = ?, title = ?, description = ?, date = ?, time = ?, location = ? WHERE id = ? AND user_id = ?`;
+    // Update query to include end_time
+    const updateQuery = `UPDATE opportunities SET nonprofit_name = ?, title = ?, description = ?, date = ?, time = ?, location = ?, end_time = ? WHERE id = ? AND user_id = ?`;
 
-    const result = await db.execute(updateQuery, [nonprofit_name, title, description, date, time, location, id, userid]);
+    const result = await db.execute(updateQuery, [nonprofit_name, title, description, date, time, location, end_time, id, userid]);
 
     if (result.changes === 0) {
       return res.status(400).json({ error: 'No changes made to the opportunity.' });
