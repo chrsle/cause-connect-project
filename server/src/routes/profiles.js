@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs'); // Make sure to install this: npm install bcryptjs
 const { createClient } = require('@libsql/client');
 
 const router = express.Router();
@@ -67,8 +68,8 @@ router.put('/profile', authenticate, async (req, res) => {
     if (userType === 'student') {
       const { full_name, age, school, bio, interests } = req.body;
 
-      if (!full_name || !age || !school || !bio || !interests) {
-        return res.status(400).json({ error: 'All fields are required for student profile.' });
+      if (!full_name || !age || !school || !bio) {
+        return res.status(400).json({ error: 'Full name, age, school, and bio are required for student profile.' });
       }
 
       // Check if profile exists
@@ -78,13 +79,13 @@ router.put('/profile', authenticate, async (req, res) => {
         // Insert new profile
         await db.execute(
           `INSERT INTO student_profiles (user_id, full_name, age, school, bio, interests) VALUES (?, ?, ?, ?, ?, ?)`,
-          [userid, full_name, age, school, bio, interests]
+          [userid, full_name, age, school, bio, interests || '']
         );
       } else {
         // Update existing profile
         await db.execute(
           `UPDATE student_profiles SET full_name = ?, age = ?, school = ?, bio = ?, interests = ? WHERE user_id = ?`,
-          [full_name, age, school, bio, interests, userid]
+          [full_name, age, school, bio, interests || '', userid]
         );
       }
 
@@ -131,13 +132,13 @@ router.post('/profile', authenticate, async (req, res) => {
     if (userType === 'student') {
       const { full_name, age, school, bio, interests } = req.body;
 
-      if (!full_name || !age || !school || !bio || !interests) {
-        return res.status(400).json({ error: 'All fields are required for student profile.' });
+      if (!full_name || !age || !school || !bio) {
+        return res.status(400).json({ error: 'Full name, age, school, and bio are required for student profile.' });
       }
 
       await db.execute(
         `INSERT INTO student_profiles (user_id, full_name, age, school, bio, interests) VALUES (?, ?, ?, ?, ?, ?)`,
-        [userid, full_name, age, school, bio, interests]
+        [userid, full_name, age, school, bio, interests || '']
       );
 
       return res.json({ message: 'Student profile created successfully.' });
@@ -166,6 +167,83 @@ router.post('/profile', authenticate, async (req, res) => {
   }
 });
 
+// POST update account settings (email and/or password)
+router.post('/account/update', authenticate, async (req, res) => {
+  const { userid } = req.body;
+  const { email, currentPassword, newPassword } = req.body;
 
+  try {
+    // Get current user data
+    const userResult = await db.execute(
+      `SELECT email, password FROM users WHERE id = ?`,
+      [userid]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const currentUser = userResult.rows[0];
+    let updateFields = [];
+    let updateValues = [];
+
+    // Handle email update
+    if (email && email !== currentUser.email) {
+      // Check if email already exists
+      const emailCheckResult = await db.execute(
+        `SELECT id FROM users WHERE email = ? AND id != ?`,
+        [email, userid]
+      );
+
+      if (emailCheckResult.rows.length > 0) {
+        return res.status(400).json({ error: 'Email already in use.' });
+      }
+
+      updateFields.push('email = ?');
+      updateValues.push(email);
+    }
+
+    // Handle password update
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password is required to change password.' });
+      }
+
+      // Verify current password
+      const passwordMatch = await bcrypt.compare(currentPassword, currentUser.password);
+      if (!passwordMatch) {
+        return res.status(400).json({ error: 'Current password is incorrect.' });
+      }
+
+      // Validate new password strength
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'New password must be at least 8 characters long.' });
+      }
+
+      // Hash new password
+      const saltRounds = 10;
+      const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+      
+      updateFields.push('password = ?');
+      updateValues.push(hashedNewPassword);
+    }
+
+    // If no updates, return early
+    if (updateFields.length === 0) {
+      return res.json({ message: 'No changes to update.' });
+    }
+
+    // Perform the update
+    updateValues.push(userid); // Add userid for WHERE clause
+    const updateQuery = `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`;
+    
+    await db.execute(updateQuery, updateValues);
+
+    res.json({ message: 'Account updated successfully.' });
+  } catch (err) {
+    console.error('Error updating account:', err);
+    res.status(500).json({ error: 'Database error.' });
+  }
+});
 
 module.exports = router;
