@@ -1,24 +1,45 @@
-
 .event-card-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr); 
-    gap: 20px; 
-    width: 60%; 
-    margin: 0 auto; 
-    padding: 0; 
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* More responsive grid */
+  gap: 20px;
+  width: 80%; /* Slightly wider than 60% for better spacing */
+  margin: 0 auto;
+  padding: 0;
+  align-items: stretch; /* Ensure all cards stretch to same height */
+}
+
+.event-card-grid .event-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.event-card-grid .card-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* Mobile view */
+@media (max-width: 1200px) {
+  .event-card-grid {
+    grid-template-columns: repeat(3, 1fr);
+    width: 90%;
   }
-  
-  .event-card-grid .event-card {
+}
+
+@media (max-width: 900px) {
+  .event-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .event-card-grid {
+    grid-template-columns: 1fr;
     width: 100%;
-    padding: 0; 
-    box-sizing: border-box; 
   }
-  
-  /* Mobile view */
-  @media (max-width: 768px) {
-    .event-card-grid {
-      grid-template-columns: 1fr; 
-      width: 100%; 
-    }
-  }
-  
+}

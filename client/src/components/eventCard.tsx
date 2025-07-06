@@ -10,9 +10,10 @@ interface EventCardProps {
   event: Event;
   userType: "student" | "organization";
   onEventUpdated?: () => void;
+  isInterestMatched?: boolean;
 }
 
-const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }) => {
+const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated, isInterestMatched = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   
   // Debug log to see what data we're getting
@@ -209,8 +210,10 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
 
   return (
     <>
-      <div className="event-card">
+      <div className={`event-card ${isInterestMatched ? 'interest-matched' : ''}`}>
         <div className={`card-container ${isOpen ? "background-disabled" : ""}`}>
+          
+          
           {/* Event Status Badge */}
           {isUpcoming() && (
             <div className="event-badge upcoming">

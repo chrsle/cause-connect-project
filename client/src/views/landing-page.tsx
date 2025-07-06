@@ -289,7 +289,13 @@ const LandingPage = () => {
                 <EventCardCarousel 
                   events={interestMatchedEvents} 
                   userType="student"  
-                  renderCard={(event, userType) => <EventCard event={event} userType={userType} />}
+                  renderCard={(event, userType) => 
+                    <EventCard 
+                      event={event} 
+                      userType={userType} 
+                      isInterestMatched={true}
+                    />
+                  }
                 />
               ) : (
                 <div style={{ textAlign: 'center', color: '#666', margin: '20px 0', padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>

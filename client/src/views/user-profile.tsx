@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import "./styles/userProfile.css";
 import avatar from "../default-avatar.png";
 import NavBar from "../components/navBar";
 import { getUserProfile, updateUserProfile } from "../utils/profile-utils";
+import { createAvatarFromName } from "../utils/profile-pic-utils";
 
 interface StudentProfile {
   full_name: string;
@@ -19,7 +20,6 @@ interface UserData {
 
 function UserProfile() {
   const [imageUrl, setImageUrl] = useState(avatar);
-  const [isHovering, setIsHovering] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   
@@ -37,8 +37,6 @@ function UserProfile() {
     bio: '',
     interests: ''
   });
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const availableInterests = [
   "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
@@ -100,6 +98,12 @@ function UserProfile() {
           if (data.profile.interests) {
             setSelectedInterests(data.profile.interests.split(", "));
           }
+
+          // Set dynamic avatar based on user name
+          if (data.profile.full_name) {
+            const dynamicAvatar = createAvatarFromName(data.profile.full_name);
+            setImageUrl(dynamicAvatar);
+          }
         } else {
           setError('No profile data found');
         }
@@ -114,6 +118,14 @@ function UserProfile() {
     fetchUserData();
   }, []);
 
+  // Update profile picture when name changes
+  useEffect(() => {
+    if (formData.full_name) {
+      const dynamicAvatar = createAvatarFromName(formData.full_name);
+      setImageUrl(dynamicAvatar);
+    }
+  }, [formData.full_name]);
+
   // Update selected interests when they change
   useEffect(() => {
     setFormData(prev => ({
@@ -121,28 +133,6 @@ function UserProfile() {
       interests: selectedInterests.join(", ")
     }));
   }, [selectedInterests]);
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result;
-        if (typeof result === 'string') {
-          setImageUrl(result);
-        }
-      };
-      reader.onerror = () => {
-        console.error("Error reading file");
-      };
-      reader.readAsDataURL(file);
-      
-      // Reset the input after selection
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
 
   // Interest toggling functionality
   const toggleInterest = (interest: string) => {
@@ -236,27 +226,8 @@ function UserProfile() {
       <div className="user-profile">
         {/* Left section with profile picture and name */}
         <div className="left-container">
-          <div 
-            className="profile-pic-container"
-            onMouseEnter={() => setIsHovering(true)}
-            onMouseLeave={() => setIsHovering(false)}
-          >
+          <div className="profile-pic-container">
             <img src={imageUrl} alt="Profile" className="user-profile-profile-pic" />
-            
-            {isHovering && (
-              <div className="user-profile-image-overlay">
-                <label className="user-profile-camera-button">
-                  <span className="camera-icon">📷</span>
-                  <input 
-                    ref={fileInputRef}
-                    type="file" 
-                    className="hidden-input" 
-                    accept="image/*" 
-                    onChange={handleImageChange} 
-                  />
-                </label>
-              </div>
-            )}
           </div>
 
           <div>
@@ -264,8 +235,6 @@ function UserProfile() {
               {displayData.full_name}'s profile page
             </span>
           </div>
-
-          
 
           <button 
             className="edit-profile-btn"

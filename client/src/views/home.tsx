@@ -66,7 +66,6 @@ const Home = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              <p className="forgot-password">Forgot Password?</p>
             </div>
 
               <button type="submit" className="login-btn">

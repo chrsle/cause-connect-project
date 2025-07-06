@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import "./styles/settingsPage.css";
-import avatar from "../default-avatar.png";
 import NavBar from "../components/navBar";
 import { useNavigate } from 'react-router-dom';
 import { getUserProfile, updateUserProfile } from '../utils/profile-utils';
@@ -28,8 +27,6 @@ interface AccountSettingsData {
 
 const SettingsPage = () => {
   const navigate = useNavigate();
-  const [imageUrl, setImageUrl] = useState(avatar);
-  const [isHovering, setIsHovering] = useState(false);
   const [activeTab, setActiveTab] = useState('account');
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -278,13 +275,7 @@ const SettingsPage = () => {
             {/* Left Sidebar */}
             <div className="settings-sidebar">
               <div className="profile-section">
-                <div 
-                  className="profile-pic-container"
-                  onMouseEnter={() => setIsHovering(true)}
-                  onMouseLeave={() => setIsHovering(false)}
-                >
-                  <img src={imageUrl} alt="Profile" className="user-profile-profile-pic" />
-                </div>
+                
                 <div className="profile-info">
                   <h3 className="profile-name">
                     {userType === 'student' ? profileFormData.full_name || 'Student' : profileFormData.nonprofit_name || 'Organization'}

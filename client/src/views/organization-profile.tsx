@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import "./styles/userProfile.css";
 import avatar from "../default-avatar.png";
 import NavBar from "../components/navBar";
 import { getUserProfile, updateUserProfile } from "../utils/profile-utils";
+import { createAvatarFromName } from "../utils/profile-pic-utils";
 
 interface NonprofitProfile {
   nonprofit_name: string;
@@ -18,7 +19,6 @@ interface UserData {
 
 function OrganizationProfile() {
   const [imageUrl, setImageUrl] = useState(avatar);
-  const [isHovering, setIsHovering] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [showNameWarning, setShowNameWarning] = useState(false);
@@ -36,8 +36,6 @@ function OrganizationProfile() {
     category: '',
     statement: ''
   });
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const availableInterests = [
   "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
@@ -98,6 +96,12 @@ function OrganizationProfile() {
           if (data.profile.category) {
             setSelectedInterests(data.profile.category.split(", "));
           }
+
+          // Set dynamic avatar based on organization name
+          if (data.profile.nonprofit_name) {
+            const dynamicAvatar = createAvatarFromName(data.profile.nonprofit_name);
+            setImageUrl(dynamicAvatar);
+          }
         } else {
           setError('No profile data found');
         }
@@ -112,6 +116,14 @@ function OrganizationProfile() {
     fetchUserData();
   }, []);
 
+  // Update profile picture when name changes
+  useEffect(() => {
+    if (formData.nonprofit_name) {
+      const dynamicAvatar = createAvatarFromName(formData.nonprofit_name);
+      setImageUrl(dynamicAvatar);
+    }
+  }, [formData.nonprofit_name]);
+
   // Update selected interests when they change
   useEffect(() => {
     setFormData(prev => ({
@@ -119,28 +131,6 @@ function OrganizationProfile() {
       category: selectedInterests.join(", ")
     }));
   }, [selectedInterests]);
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result;
-        if (typeof result === 'string') {
-          setImageUrl(result);
-        }
-      };
-      reader.onerror = () => {
-        console.error("Error reading file");
-      };
-      reader.readAsDataURL(file);
-      
-      // Reset the input after selection
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
 
   // Interest toggling functionality
   const toggleInterest = (interest: string) => {
@@ -239,27 +229,8 @@ function OrganizationProfile() {
       <div className="user-profile">
         {/* Left section with profile picture and name */}
         <div className="left-container">
-          <div 
-            className="profile-pic-container"
-            onMouseEnter={() => setIsHovering(true)}
-            onMouseLeave={() => setIsHovering(false)}
-          >
+          <div className="profile-pic-container">
             <img src={imageUrl} alt="Profile" className="user-profile-profile-pic" />
-            
-            {isHovering && (
-              <div className="user-profile-image-overlay">
-                <label className="user-profile-camera-button">
-                  <span className="camera-icon">📷</span>
-                  <input 
-                    ref={fileInputRef}
-                    type="file" 
-                    className="hidden-input" 
-                    accept="image/*" 
-                    onChange={handleImageChange} 
-                  />
-                </label>
-              </div>
-            )}
           </div>
 
           <div>
@@ -267,8 +238,6 @@ function OrganizationProfile() {
               {displayData.nonprofit_name}'s profile page
             </span>
           </div>
-
-         
 
           <button 
             className="edit-profile-btn"
