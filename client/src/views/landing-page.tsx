@@ -274,7 +274,7 @@ const LandingPage = () => {
           <h2 className="header-events">Dive Deeper into your Interests</h2>
           {userData?.interests ? (
             <>
-              <p style={{ margin: '10px 0', fontSize: '14px' }}>
+              <p style={{ margin: '10px 0', fontSize: '14px', textAlign: 'center', color: 'black', fontStyle: "italic" }}>
                 Upcoming events from organizations matching your interests: <strong>{userData.interests}</strong>
                 {selectedDistance !== 'all' && ` (within ${selectedDistance} miles)`}
               </p>
@@ -289,13 +289,7 @@ const LandingPage = () => {
                 <EventCardCarousel 
                   events={interestMatchedEvents} 
                   userType="student"  
-                  renderCard={(event, userType) => 
-                    <EventCard 
-                      event={event} 
-                      userType={userType} 
-                      isInterestMatched={true}
-                    />
-                  }
+                  renderCard={(event, userType) => <EventCard event={event} userType={userType} />}
                 />
               ) : (
                 <div style={{ textAlign: 'center', color: '#666', margin: '20px 0', padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>

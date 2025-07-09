@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import "./styles/settingsPage.css";
 import NavBar from "../components/navBar";
 import { useNavigate } from 'react-router-dom';
-import { getUserProfile, updateUserProfile } from '../utils/profile-utils';
+import { getUserProfile } from '../utils/profile-utils';
 import { getSession } from '../utils/user-utils';
 
 interface UserProfile {
@@ -30,7 +30,6 @@ const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState('account');
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  // Fix: Change userType to use the specific union type
   const [userType, setUserType] = useState<"student" | "organization">("student");
   const [sessionEmail, setSessionEmail] = useState<string>('');
 
@@ -39,19 +38,6 @@ const SettingsPage = () => {
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
-  });
-
-  const [profileFormData, setProfileFormData] = useState<UserProfile>({
-    full_name: '',
-    email: '',
-    age: 0,
-    school: '',
-    bio: '',
-    interests: '',
-    nonprofit_name: '',
-    location: '',
-    category: '',
-    statement: '',
   });
 
   useEffect(() => {
@@ -72,26 +58,8 @@ const SettingsPage = () => {
         
         // Determine user type based on profile data
         const isStudent = 'full_name' in profile;
-        // Fix: Use 'organization' instead of 'nonprofit' to match your type definition
         setUserType(isStudent ? 'student' : 'organization');
         
-        // Set profile form data
-        if (isStudent) {
-          setProfileFormData({
-            full_name: profile.full_name || '',
-            age: profile.age || 0,
-            school: profile.school || '',
-            bio: profile.bio || '',
-            interests: profile.interests || '',
-          });
-        } else {
-          setProfileFormData({
-            nonprofit_name: profile.nonprofit_name || '',
-            location: profile.location || '',
-            category: profile.category || '',
-            statement: profile.statement || '',
-          });
-        }
       } catch (error) {
         console.error('Error fetching user data:', error);
         // If profile doesn't exist, that's ok - user can create one
@@ -106,14 +74,6 @@ const SettingsPage = () => {
   const handleAccountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setProfileFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'age' ? parseInt(value) || 0 : value 
-    }));
   };
 
   const handleAccountSave = async () => {
@@ -182,29 +142,6 @@ const SettingsPage = () => {
     }
   };
 
-  const handleProfileSave = async () => {
-    try {
-      // Validate required fields based on user type
-      if (userType === 'student') {
-        if (!profileFormData.full_name || !profileFormData.age || !profileFormData.school || !profileFormData.bio) {
-          alert('Please fill in all required fields (Full Name, Age, School, Bio).');
-          return;
-        }
-      } else if (userType === 'organization') {
-        if (!profileFormData.nonprofit_name || !profileFormData.location || !profileFormData.category || !profileFormData.statement) {
-          alert('Please fill in all required fields (Organization Name, Location, Category, Statement).');
-          return;
-        }
-      }
-
-      await updateUserProfile(profileFormData);
-      alert('Profile updated successfully!');
-    } catch (error) {
-      console.error('Profile update error:', error);
-      alert(`Error updating profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
-
   const handleCancelAccount = () => {
     // Reset account form to original values
     setFormData({
@@ -213,28 +150,6 @@ const SettingsPage = () => {
       newPassword: '',
       confirmPassword: '',
     });
-  };
-
-  const handleCancelProfile = () => {
-    // Reset profile form to original values based on user type
-    if (userProfile) {
-      if (userType === 'student') {
-        setProfileFormData({
-          full_name: userProfile.full_name || '',
-          age: userProfile.age || 0,
-          school: userProfile.school || '',
-          bio: userProfile.bio || '',
-          interests: userProfile.interests || '',
-        });
-      } else {
-        setProfileFormData({
-          nonprofit_name: userProfile.nonprofit_name || '',
-          location: userProfile.location || '',
-          category: userProfile.category || '',
-          statement: userProfile.statement || '',
-        });
-      }
-    }
   };
 
   const handleCancelSecurity = () => {
@@ -268,17 +183,19 @@ const SettingsPage = () => {
           {/* Header */}
           <div className="settings-header">
             <h1 className="settings-title">Settings</h1>
-            <p className="settings-subtitle">Manage your account and profile information</p>
+            <p className="settings-subtitle">Manage your account and security settings</p>
           </div>
 
           <div className="settings-content">
             {/* Left Sidebar */}
             <div className="settings-sidebar">
               <div className="profile-section">
-                
                 <div className="profile-info">
                   <h3 className="profile-name">
-                    {userType === 'student' ? profileFormData.full_name || 'Student' : profileFormData.nonprofit_name || 'Organization'}
+                    {userType === 'student' ? 
+                      (userProfile?.full_name || 'Student') : 
+                      (userProfile?.nonprofit_name || 'Organization')
+                    }
                   </h3>
                   <p className="profile-email">{sessionEmail}</p>
                 </div>
@@ -291,13 +208,6 @@ const SettingsPage = () => {
                 >
                   <span className="nav-icon">👤</span>
                   Account Settings
-                </button>
-                <button 
-                  className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('profile')}
-                >
-                  <span className="nav-icon">📝</span>
-                  Profile Information
                 </button>
                 <button 
                   className={`nav-item ${activeTab === 'security' ? 'active' : ''}`}
@@ -344,142 +254,6 @@ const SettingsPage = () => {
                     </button>
                     <button className="btn-primary" onClick={handleAccountSave}>
                       Save Changes
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'profile' && (
-                <div className="settings-section">
-                  <div className="section-header">
-                    <h2 className="section-title">Profile Information</h2>
-                    <p className="section-description">
-                      {userType === 'student' ? 'Update your personal information and interests' : 'Update your organization information'}
-                    </p>
-                  </div>
-
-                  {userType === 'student' ? (
-                    <>
-                      <div className="form-group">
-                        <label className="form-label">Full Name *</label>
-                        <input
-                          type="text"
-                          name="full_name"
-                          className="form-input"
-                          value={profileFormData.full_name || ''}
-                          onChange={handleProfileChange}
-                          placeholder="Enter your full name"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">Age *</label>
-                        <input
-                          type="number"
-                          name="age"
-                          className="form-input"
-                          value={profileFormData.age || ''}
-                          onChange={handleProfileChange}
-                          placeholder="Enter your age"
-                          min="1"
-                          max="120"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">School *</label>
-                        <input
-                          type="text"
-                          name="school"
-                          className="form-input"
-                          value={profileFormData.school || ''}
-                          onChange={handleProfileChange}
-                          placeholder="Enter your school name"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">Bio *</label>
-                        <textarea
-                          name="bio"
-                          className="form-input"
-                          value={profileFormData.bio || ''}
-                          onChange={handleProfileChange}
-                          placeholder="Tell us about yourself"
-                          rows={4}
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">Interests</label>
-                        <input
-                          type="text"
-                          name="interests"
-                          className="form-input"
-                          value={profileFormData.interests || ''}
-                          onChange={handleProfileChange}
-                          placeholder="Enter your interests (comma-separated)"
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="form-group">
-                        <label className="form-label">Organization Name *</label>
-                        <input
-                          type="text"
-                          name="nonprofit_name"
-                          className="form-input"
-                          value={profileFormData.nonprofit_name || ''}
-                          onChange={handleProfileChange}
-                          placeholder="Enter organization name"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">Location *</label>
-                        <input
-                          type="text"
-                          name="location"
-                          className="form-input"
-                          value={profileFormData.location || ''}
-                          onChange={handleProfileChange}
-                          placeholder="Enter your location"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">Category *</label>
-                        <input
-                          type="text"
-                          name="category"
-                          className="form-input"
-                          value={profileFormData.category || ''}
-                          onChange={handleProfileChange}
-                          placeholder="Enter organization category"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">Mission Statement *</label>
-                        <textarea
-                          name="statement"
-                          className="form-input"
-                          value={profileFormData.statement || ''}
-                          onChange={handleProfileChange}
-                          placeholder="Enter your organization's mission statement"
-                          rows={4}
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  <div className="action-buttons">
-                    <button className="btn-secondary" onClick={handleCancelProfile}>
-                      Cancel
-                    </button>
-                    <button className="btn-primary" onClick={handleProfileSave}>
-                      Save Profile
                     </button>
                   </div>
                 </div>

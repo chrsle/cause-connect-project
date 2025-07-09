@@ -9,7 +9,7 @@
     flex-direction: column;
     justify-content: flex-start;
     align-items: center;
-    padding-top: 30px;
+    padding: 30px;
   }
   
   .profile-pic-container {

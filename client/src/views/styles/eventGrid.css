@@ -23,6 +23,30 @@
   box-sizing: border-box;
 }
 
+.show-more-container {
+  grid-column: 1 / -1; /* Span across all columns */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 24px 0;
+  width: 100%;
+}
+
+.show-more-button {
+  padding: 10px 20px;
+  background-color: #0077cc;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.show-more-button:hover {
+  background-color: #005fa3;
+}
+
 /* Mobile view */
 @media (max-width: 1200px) {
   .event-card-grid {

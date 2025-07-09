@@ -7,55 +7,79 @@
     padding: 40px 20px;
     max-width: 900px;
     margin: 0 auto;
-  }
-  
-  .landing-page__greeting {
+}
+
+.landing-page__greeting {
     font-size: 2.5rem;
     margin-bottom: 10px;
-  }
-  
-  .landing-page__welcome {
+}
+
+.landing-page__welcome {
     font-size: 1.2rem;
     color: #333;
     margin-bottom: 40px;
-  }
-  
-  .highlight {
+}
+
+.highlight {
     color: #1A83F8;
     font-weight: bold;
-  }
-  
-  .my-events-events{
+}
+
+.my-events-events{
     background-color:white;
+}
 
-  }
-
-  .header-events{
+.header-events{
     background-color:#1A83F8;
     color: white;
     align-content: center;
     text-decoration: underline;
-  }
+}
 
-
-  .header-pastEvents{
+.header-pastEvents{
     background-color:white;
     color: white;
     align-content: center;
     text-decoration: underline;
     padding-top: 15px;
     padding-bottom: 15px;
-  }
+}
 
-  .my-events-pastEvents{
+.my-events-pastEvents{
     background-color:white;
-  }
+}
 
-  .number_of_events{
+.number_of_events{
     display: flex;
     justify-content: center;
     margin: auto;
     color:white;
     font-style: italic;
-  }
+}
 
+/* Centered empty state messages */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    margin: 20px auto;
+    max-width: 600px;
+    color: #666;
+}
+
+.empty-state p {
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+    line-height: 1.5;
+    color: #333;
+}
+
+.empty-state a {
+    color: purple;
+    text-decoration: none;
+    font-weight: bold;
+    display: inline;
+}
+
+.empty-state a:hover {
+    text-decoration: underline;
+}
