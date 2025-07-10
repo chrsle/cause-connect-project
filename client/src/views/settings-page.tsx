@@ -306,10 +306,8 @@ const SettingsPage = () => {
                     <div className="info-card">
                       <h4>Password Requirements:</h4>
                       <ul>
-                        <li>At least 8 characters long</li>
-                        <li>Include uppercase and lowercase letters</li>
-                        <li>Include at least one number</li>
-                        <li>Include at least one special character</li>
+                        <li>At least 12 characters long</li>
+                        <li>Password cannot exceed 70 characters</li>
                       </ul>
                     </div>
                   </div>

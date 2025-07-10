@@ -37,8 +37,14 @@ const authenticate = (req, res, next) => {
 // GET: Retrieve all opportunities for STUDENTS (no filter on user_id) - ONLY ACTIVE EVENTS WITH ORG CAUSES
 router.get('/opportunities/all', async (req, res) => {
   try {
-    // Get current date in YYYY-MM-DD format for comparison
-    const today = new Date().toISOString().split('T')[0];
+    // Get current date in PST timezone in YYYY-MM-DD format for comparison
+    const now = new Date();
+    const pstDate = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+    const today = pstDate.getFullYear() + '-' + 
+                  String(pstDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                  String(pstDate.getDate()).padStart(2, '0');
+    
+    console.log('Current PST date for filtering:', today);
     
     // JOIN with nonprofit_profiles to get organization causes
     const query = `
@@ -192,8 +198,14 @@ router.get('/opportunities/nearby', async (req, res) => {
       return res.status(400).json({ error: 'Unable to geocode the provided location.' });
     }
 
-    // Get current date in YYYY-MM-DD format for comparison
-    const today = new Date().toISOString().split('T')[0];
+    // Get current date in PST timezone in YYYY-MM-DD format for comparison
+    const now = new Date();
+    const pstDate = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+    const today = pstDate.getFullYear() + '-' + 
+                  String(pstDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                  String(pstDate.getDate()).padStart(2, '0');
+    
+    console.log('Current PST date for nearby filtering:', today);
     
     // JOIN with nonprofit_profiles to get organization causes
     const query = `

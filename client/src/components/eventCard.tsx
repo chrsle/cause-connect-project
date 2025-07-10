@@ -114,7 +114,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
     }
   };
 
-  // Format time for display - Convert from military to 12-hour format
+  // Format time for display - Convert from military to 12-hour format with PST
   const formatTime = (timeString: string) => {
     // Safety check for undefined/null timeString
     if (!timeString) {
@@ -243,7 +243,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
             </div>
 
             <div className="datetime-group">
-              <label className="datetime-label">🕐 Time</label>
+              <label className="datetime-label">🕐 Time (PST)</label>
               <div className="datetime-content">
                 <span className="event-card__time-range">
                   {formatTimeRange(displayStartTime, displayEndTime)}

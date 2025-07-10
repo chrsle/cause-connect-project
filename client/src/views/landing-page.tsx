@@ -185,10 +185,10 @@ const LandingPage = () => {
     getInterestMatchedEvents(filteredEvents, userData.interests) : 
     [];
 
-  // For explore section: show only first 8 events if no search, all filtered if searching
+  // For explore section: show only first 9 events if no search, all filtered if searching
   const exploreEvents = searchQuery.trim() 
     ? searchFilteredEvents // Show all matching results when searching
-    : searchFilteredEvents.slice(0, 8); // Limit to 8 when not searching
+    : searchFilteredEvents.slice(0, 9); // Limit to 9 when not searching
 
   if (loading) {
     return (
@@ -339,9 +339,9 @@ const LandingPage = () => {
           )}
           
           {/* Show message when not searching and there are more events */}
-          {!searchQuery.trim() && !isLoadingLocation && searchFilteredEvents.length > 8 && (
+          {!searchQuery.trim() && !isLoadingLocation && searchFilteredEvents.length > 9 && (
             <p style={{ margin: '20px 0', color: '#666', textAlign: 'center', fontStyle: 'italic' }}>
-              Showing 8 of {searchFilteredEvents.length} upcoming events{selectedDistance !== 'all' && ` within ${selectedDistance} miles`}. Use the search bar to find specific events.
+              Showing 9 of {searchFilteredEvents.length} upcoming events{selectedDistance !== 'all' && ` within ${selectedDistance} miles`}. Use the search bar to find specific events.
             </p>
           )}
           

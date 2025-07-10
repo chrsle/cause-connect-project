@@ -380,7 +380,7 @@ const ExpandedCardPortal: React.FC<{
             <h2 className="event-card__title">{event.title}</h2>
             <p><span className="event-card_label">Organization: </span>{event.organization}</p>
             <p><span className="event-card_label">Date: </span>{formatDateDisplay(displayStartDate)}</p>
-            <p><span className="event-card_label">Time: </span>{formatTimeRange(displayStartTime, displayEndTime)}</p>
+            <p><span className="event-card_label">Time (PST): </span>{formatTimeRange(displayStartTime, displayEndTime)}</p>
             <p><span className="event-card_label">Location: </span>{event.location}</p>
             <p><span className="event-card_label">Description: </span>{event.body}</p>
           </>

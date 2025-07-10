@@ -128,7 +128,7 @@ useEffect(() => {
       const period = hours >= 12 ? 'PM' : 'AM';
       const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
       const displayMinutes = minutes.toString().padStart(2, '0');
-      return `${displayHours}:${displayMinutes} ${period}`;
+      return `${displayHours}:${displayMinutes} ${period} (PST)`;
     } catch (error) {
       return timeString;
     }
