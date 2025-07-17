@@ -18,7 +18,7 @@ const userRouter = require('./src/routes/profiles.js');
 app.set('trust proxy', 1);
 
 // CORS configuration - allow local dev and deployed frontend origins
-const allowedOrigins = ["https://causeconnectus.onrender.com" ];
+const allowedOrigins = [  "https://causeconnectus.netlify.app" ];
 
 app.use(cors({
   origin: function(origin, callback) {
