@@ -25,6 +25,8 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function(origin, callback) {
+      console.log("CORS Origin:", origin);
+
     // Allow requests with no origin like mobile apps, curl, Postman
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -158,8 +160,8 @@ app.post("/api/login", async (req, res) => {
     
     res.cookie("token", token, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production", // Secure cookies in prod
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production",
     });
     
     const userType = user.user_type;
