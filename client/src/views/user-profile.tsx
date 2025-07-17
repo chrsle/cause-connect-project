@@ -73,7 +73,7 @@ function UserProfile() {
           return await response.json();
         };
 
-        const API_BASE = "http://causeconnectbackend.onrender.com:5001/api";
+        const API_BASE = "http://causeconnectbackend.onrender.com/api";
         
         const data = await makeRequest(`${API_BASE}/me`, 'GET');
         console.log('User data received:', data);
