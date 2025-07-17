@@ -14,24 +14,12 @@ const opportunitiesRouter = require('./src/routes/createEvents.js');
 const reserveRouter = require('./src/routes/reserveEvents.js'); 
 const userRouter = require('./src/routes/profiles.js'); 
 
-// Trust proxy (needed on platforms like Render to handle secure cookies correctly)
 app.set('trust proxy', 1);
 
-// CORS configuration - allow local dev and deployed frontend origins
-const allowedOrigins = ["https://causeconnectus.netlify.app"];
-
+// CORS configuration - allow Netlify frontend and send cookies
 app.use(cors({
-  origin: function(origin, callback) {
-      console.log("CORS Origin:", origin);
-
-    // Allow requests with no origin like mobile apps, curl, Postman
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
+  origin: "https://causeconnectus.netlify.app", 
+  credentials: true,                            
 }));
 
 // Middleware
