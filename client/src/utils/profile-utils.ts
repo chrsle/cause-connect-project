@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:5001/api";
+const API_BASE = "http://causeconnectbackend.onrender.com:5001/api";
 
 // Utility function to make API calls with authentication token (reuse your existing function)
 const makeRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', data?: any) => {

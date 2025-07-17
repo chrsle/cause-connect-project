@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:5001/api";
+const API_BASE = "http://causeconnectbackend.onrender.com:5001/api";
 
 export interface AuthResponse {
   success: boolean;
