@@ -18,7 +18,7 @@ const userRouter = require('./src/routes/profiles.js');
 app.set('trust proxy', 1);
 
 // CORS configuration - allow local dev and deployed frontend origins
-const allowedOrigins = [  "https://causeconnectus.netlify.app" ];
+const allowedOrigins = ["https://causeconnectus.netlify.app"];
 
 app.use(cors({
   origin: function(origin, callback) {
@@ -155,11 +155,12 @@ app.post("/api/login", async (req, res) => {
       { expiresIn: "1h" }
     );
     
-    res.cookie("token", token, {
+    res.cookie('token', token, {
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      secure: process.env.NODE_ENV === "production",
-    });
+      secure: true,
+      sameSite: 'None', 
+});
+
     
     const userType = user.user_type;
     let nextRoute = "";
