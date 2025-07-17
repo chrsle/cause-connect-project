@@ -1,4 +1,4 @@
-const API_BASE = "http://causeconnectbackend.onrender.com/api";
+const API_BASE = "https://causeconnectbackend.onrender.com/api";
 
 // Utility function to make API calls with authentication token
 const makeRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', data?: any) => {

@@ -113,7 +113,7 @@ const NavBar: React.FC<NavBarProps> = ({ userType }) => {
       return await response.json();
     };
 
-    const API_BASE = "http://causeconnectbackend.onrender.com/api";
+    const API_BASE = "https://causeconnectbackend.onrender.com/api";
 
     fetchUserProfile();
   }, [userType]);

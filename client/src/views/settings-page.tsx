@@ -114,7 +114,7 @@ const SettingsPage = () => {
         return;
       }
 
-      const response = await fetch('http://causeconnectbackend.onrender.com/api/account/update', {
+      const response = await fetch('https://causeconnectbackend.onrender.com/api/account/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
