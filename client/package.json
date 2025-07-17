@@ -2,7 +2,7 @@
   "name": "client",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://localhost:3000",
+  "proxy": "http://causeconnectbackend.onrender.com",
   "dependencies": {
     "framer-motion": "^12.6.5",
     "react": "^19.1.0",
