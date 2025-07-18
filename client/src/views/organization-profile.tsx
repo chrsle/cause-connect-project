@@ -4,6 +4,7 @@ import avatar from "../default-avatar.png";
 import NavBar from "../components/navBar";
 import { getUserProfile, updateUserProfile } from "../utils/profile-utils";
 import { createAvatarFromName } from "../utils/profile-pic-utils";
+import { fetchWithAuth } from "../utils/user-utils";
 
 interface NonprofitProfile {
   nonprofit_name: string;
@@ -16,6 +17,8 @@ interface UserData {
   email: string;
   profile: NonprofitProfile;
 }
+
+const API_BASE = "https://causeconnectbackend.onrender.com/api";
 
 function OrganizationProfile() {
   const [imageUrl, setImageUrl] = useState(avatar);
@@ -38,10 +41,10 @@ function OrganizationProfile() {
   });
 
   const availableInterests = [
-  "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
-              "Environment", "Global – Local Based", "Health & Disease", "Homeless", "Hunger & Poverty",
-              "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", 
-              "Sports", "Music/Art", "Engineering", "Mathematics", "Science", "Social Justice"
+    "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
+    "Environment", "Global – Local Based", "Health & Disease", "Homeless", "Hunger & Poverty",
+    "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", 
+    "Sports", "Music/Art", "Engineering", "Mathematics", "Science", "Social Justice"
   ];
 
   // Fetch user profile data on component mount
@@ -51,30 +54,21 @@ function OrganizationProfile() {
         setLoading(true);
         setError(null);
         
-        // Helper function for API calls
-        const makeRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', data?: any) => {
-          const headers: HeadersInit = {
-            'Content-Type': 'application/json',
-          };
+        const response = await fetchWithAuth(`${API_BASE}/me`, {
+          method: 'GET',
+          credentials: 'include',
+        });
 
-          const requestOptions: RequestInit = {
-            method,
-            headers,
-            credentials: 'include', 
-            body: data ? JSON.stringify(data) : undefined,
-          };
-
-          const response = await fetch(url, requestOptions);
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'An error occurred');
+        if (!response.ok) {
+          if (response.status === 401) {
+            setError('Please log in to view your profile');
+            return;
           }
-          return await response.json();
-        };
+          const errorData = await response.json().catch(() => ({ error: 'Failed to load profile' }));
+          throw new Error(errorData.error || errorData.message || 'Failed to load profile');
+        }
 
-        const API_BASE = "https://causeconnectbackend.onrender.com/api";
-        
-        const data = await makeRequest(`${API_BASE}/me`, 'GET');
+        const data = await response.json();
         console.log('Nonprofit data received:', data);
         
         if (data && data.profile) {
@@ -94,7 +88,7 @@ function OrganizationProfile() {
           
           // Set selected interests from category
           if (data.profile.category) {
-            setSelectedInterests(data.profile.category.split(", "));
+            setSelectedInterests(data.profile.category.split(", ").filter(Boolean));
           }
 
           // Set dynamic avatar based on organization name
@@ -107,7 +101,7 @@ function OrganizationProfile() {
         }
       } catch (error) {
         console.error('Error fetching nonprofit profile:', error);
-        setError('Failed to load profile data');
+        setError(error instanceof Error ? error.message : 'Failed to load profile data');
       } finally {
         setLoading(false);
       }
@@ -153,7 +147,7 @@ function OrganizationProfile() {
     }));
   };
 
-  // Handle saving changes
+  // Handle saving changes using the profile-utils function
   const saveChanges = async () => {
     try {
       setSaving(true);
@@ -210,6 +204,7 @@ function OrganizationProfile() {
         <NavBar userType="organization" />
         <div className="user-profile">
           <div className="error-message">Error: {error}</div>
+          <button onClick={() => window.location.reload()}>Retry</button>
         </div>
       </>
     );
@@ -323,7 +318,7 @@ function OrganizationProfile() {
                 <span className="info-icon">❤️</span> Specializations
               </h2>
               {editMode ? (
-                  <div className="interests-dropdown-container">
+                <div className="interests-dropdown-container">
                   <div className="selected-interests">
                     {selectedInterests.map((interest, index) => (
                       <span key={index} className="selected-interest">
@@ -378,7 +373,7 @@ function OrganizationProfile() {
           </div>
         </div>
       </div>
-      </>
+    </>
   );
 }
 

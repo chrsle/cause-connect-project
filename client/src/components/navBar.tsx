@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import "../views/styles/dropDownMenu.css";
 import { getOrganizationProfile } from "../utils/events-utils";
 import { getUserProfile } from "../utils/profile-utils";
-import { logout } from "../utils/user-utils";
+import { logout, fetchWithAuth } from "../utils/user-utils"; // Add fetchWithAuth import
 import { createAvatarFromName } from "../utils/profile-pic-utils";
 
 interface NavBarProps {
@@ -62,7 +62,18 @@ const NavBar: React.FC<NavBarProps> = ({ userType }) => {
         setLoading(true);
         setError(null);
         
-        const data = await makeRequest(`${API_BASE}/me`, 'GET');
+        const API_BASE = "https://causeconnectbackend.onrender.com/api";
+        
+        // Use fetchWithAuth instead of custom makeRequest
+        const response = await fetchWithAuth(`${API_BASE}/me`, {
+          method: 'GET'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch user data');
+        }
+        
+        const data = await response.json();
         
         if (userType === "student") {
           if (data && data.profile) {
@@ -92,28 +103,6 @@ const NavBar: React.FC<NavBarProps> = ({ userType }) => {
         setLoading(false);
       }
     };
-
-    const makeRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', data?: any) => {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-
-      const requestOptions: RequestInit = {
-        method,
-        headers,
-        credentials: 'include', 
-        body: data ? JSON.stringify(data) : undefined,
-      };
-
-      const response = await fetch(url, requestOptions);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'An error occurred');
-      }
-      return await response.json();
-    };
-
-    const API_BASE = "https://causeconnectbackend.onrender.com/api";
 
     fetchUserProfile();
   }, [userType]);

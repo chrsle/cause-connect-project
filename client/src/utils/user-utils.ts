@@ -21,7 +21,7 @@ const removeAuthToken = (): void => {
 };
 
 // Generic fetch function with authentication
-const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
+export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const token = getAuthToken();
   
   const config: RequestInit = {
