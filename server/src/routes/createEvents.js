@@ -13,23 +13,21 @@ const db = createClient({
 
 // Middleware to validate JWT and extract user info (we don't attach `user` to req anymore)
 const authenticate = (req, res, next) => {
-  const token = req.cookies.token;  // now it uses 'token' from cookies 
-
+  // Check for token in Authorization header first, then fall back to cookies
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1] || req.cookies.token;
+  
   if (!token) {
     return res.status(403).json({ error: 'Authentication required.' });
   }
-
-  const decoded = jwt.decode(token);
-  console.log('Decoded:', decoded);
-  console.log('Token expires at:', new Date(decoded.exp * 1000));  
 
   jwt.verify(token, process.env.JWTSECRET || '', (err, decoded) => {
     if (err) {
       console.error('JWT verification failed:', err.message);
       return res.status(403).json({ error: 'Invalid token.' });
     }
-    req.body.userid = decoded.id; // Attach the user ID from the token to the request body
-    req.body.userType = decoded.userType; // Attach the userType from the token to the request body
+    req.body.userid = decoded.id;
+    req.body.userType = decoded.userType;
     next();
   });
 };

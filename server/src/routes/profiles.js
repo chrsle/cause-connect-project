@@ -1,6 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); // Make sure to install this: npm install bcryptjs
+const bcrypt = require('bcryptjs'); 
 const { createClient } = require('@libsql/client');
 
 const router = express.Router();
@@ -10,10 +10,11 @@ const db = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-// Reuse your authenticate middleware to decode & verify token, attach user info to req.body
 const authenticate = (req, res, next) => {
-  const token = req.cookies.token;
-
+  // Check for token in Authorization header first, then fall back to cookies
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1] || req.cookies.token;
+  
   if (!token) {
     return res.status(403).json({ error: 'Authentication required.' });
   }
