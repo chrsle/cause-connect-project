@@ -16,11 +16,21 @@ const userRouter = require('./src/routes/profiles.js');
 
 app.set('trust proxy', 1);
 
-// CORS configuration - allow Netlify frontend and send cookies
+// CORS configuration - allow Netlify frontend
 app.use(cors({
   origin: "https://causeconnectus.netlify.app", 
-  credentials: true,                            
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
+
+// Additional headers for Safari compatibility
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  next();
+});
 
 // Middleware
 app.use(express.json());
@@ -37,9 +47,12 @@ const db = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-// Helper: authenticate middleware
+// Helper: authenticate middleware - supports both Authorization header and cookies
 const authenticateToken = (req, res, next) => {
-  const token = req.cookies.token;
+  // Check for token in Authorization header first, then fall back to cookies
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1] || req.cookies.token;
+  
   if (!token) return res.sendStatus(401);
 
   jwt.verify(token, process.env.JWTSECRET, (err, user) => {
@@ -117,7 +130,7 @@ app.post("/api/signup", async (req, res) => {
   }
 });
 
-// Login
+// Login - Updated to return token in response
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
   
@@ -143,12 +156,14 @@ app.post("/api/login", async (req, res) => {
       { expiresIn: "1h" }
     );
     
+    // Set cookie as backup (for browsers that support it)
     res.cookie('token', token, {
       httpOnly: true,
       secure: true,
-      sameSite: 'None', 
-});
-
+      sameSite: 'None',
+      maxAge: 3600000, // 1 hour in milliseconds
+      path: '/',
+    });
     
     const userType = user.user_type;
     let nextRoute = "";
@@ -173,6 +188,7 @@ app.post("/api/login", async (req, res) => {
       success: true,
       userType,
       nextRoute,
+      token, // Include token in response for localStorage storage
     });
   } catch (err) {
     console.error("[LOGIN] Error during login:", err);
@@ -219,10 +235,10 @@ app.get("/api/me", authenticateToken, async (req, res) => {
   }
 });
 
-// Logout
+// Logout - Updated to also clear localStorage token
 app.post("/api/logout", (req, res) => {
   res.clearCookie("token");
-  res.send("Logged out");
+  res.json({ success: true, message: "Logged out" });
 });
 
 // Session check
