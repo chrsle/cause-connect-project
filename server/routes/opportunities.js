@@ -1,114 +1,112 @@
 const express = require('express');
 const { db } = require('../db');
-const { authenticate, requireOwnEvent } = require('../auth');
-const { EVENT_COLUMNS, todayInLosAngeles, toEvent } = require('../events');
+const { authenticate, requireRole, requireOwnEvent } = require('../auth');
+const { EVENT_COLUMNS, nowInLosAngeles, hasStarted, toEvent } = require('../events');
 const { calculateDistance, getCoordinates } = require('../geocoding');
 
 const router = express.Router();
+const nonprofitOnly = [authenticate, requireRole('nonprofit')];
 
-const REQUIRED_FIELDS = ['nonprofit_name', 'title', 'description', 'date', 'time', 'location'];
-const hasRequiredFields = (body) => REQUIRED_FIELDS.every((field) => body[field]);
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME = /^\d{2}:\d{2}$/;
+
+function readOpportunity(body) {
+  const { title, description, date, time, end_time, location } = body ?? {};
+  const filled = (value) => typeof value === 'string' && value.trim();
+  if (![title, description, date, time, location].every(filled)) return { error: 'All fields are required.' };
+  if (!DATE.test(date) || !TIME.test(time) || (end_time && !TIME.test(end_time))) {
+    return { error: 'Dates must be YYYY-MM-DD and times HH:MM.' };
+  }
+  if (end_time && end_time <= time) return { error: 'End time must be after start time.' };
+  if (hasStarted({ date, time })) return { error: 'The start time must be in the future.' };
+  return { values: [title.trim(), description.trim(), date, time, end_time || null, location.trim()] };
+}
+
+// The organization name is copied from the profile so a client cannot post under another name.
+async function organizationName(userId) {
+  const result = await db.execute('SELECT nonprofit_name FROM nonprofit_profiles WHERE user_id = ? LIMIT 1', [userId]);
+  return result.rows[0]?.nonprofit_name;
+}
 
 const upcomingEvents = () =>
-  db.execute(`SELECT ${EVENT_COLUMNS} FROM opportunities o WHERE o.date >= ? ORDER BY o.date ASC, o.time ASC`, [
-    todayInLosAngeles(),
-  ]);
+  db.execute(
+    `SELECT ${EVENT_COLUMNS} FROM opportunities o
+     WHERE o.date || ' ' || o.time > ?
+     ORDER BY o.date, o.time`,
+    [nowInLosAngeles()]
+  );
 
 router.get('/opportunities/all', async (req, res) => {
-  try {
-    const result = await upcomingEvents();
-    res.json(result.rows.map(toEvent));
-  } catch (err) {
-    console.error('Error fetching all opportunities:', err);
-    res.status(500).json({ error: 'Database error backend.', details: err.message });
-  }
-});
-
-router.get('/opportunities', authenticate, async (req, res) => {
-  try {
-    const result = await db.execute(`SELECT ${EVENT_COLUMNS} FROM opportunities o WHERE o.user_id = ?`, [req.user.id]);
-    res.json(result.rows.map(toEvent));
-  } catch (err) {
-    console.error('Error fetching opportunities:', err);
-    res.status(500).json({ error: 'Database error.' });
-  }
+  const result = await upcomingEvents();
+  res.json(result.rows.map(toEvent));
 });
 
 router.get('/opportunities/nearby', async (req, res) => {
-  const { location, radius } = req.query;
-  if (!location || !radius) {
+  const { location } = req.query;
+  const radius = parseFloat(req.query.radius);
+  if (!location || !(radius > 0)) {
     return res.status(400).json({ error: 'Location and radius are required query parameters.' });
   }
 
-  try {
-    const origin = await getCoordinates(location);
-    if (!origin) return res.status(400).json({ error: 'Unable to geocode the provided location.' });
+  const origin = await getCoordinates(location);
+  if (!origin) return res.status(400).json({ error: 'Unable to find that location.' });
 
-    const result = await upcomingEvents();
-    const nearby = [];
-    for (const row of result.rows) {
-      const coords = await getCoordinates(row.location);
-      if (!coords) continue;
-      const distance = calculateDistance(origin.lat, origin.lon, coords.lat, coords.lon);
-      if (distance <= parseFloat(radius)) nearby.push({ ...toEvent(row), distance: distance.toFixed(1) });
-    }
-    res.json(nearby);
-  } catch (err) {
-    console.error('Error in nearby search:', err);
-    res.status(500).json({ error: 'Error processing location search.' });
+  const nearby = [];
+  for (const row of (await upcomingEvents()).rows) {
+    const coords = await getCoordinates(row.location);
+    if (!coords) continue;
+    const distance = calculateDistance(origin.lat, origin.lon, coords.lat, coords.lon);
+    if (distance <= radius) nearby.push({ ...toEvent(row), distance: distance.toFixed(1) });
   }
+  res.json(nearby);
 });
 
-router.post('/opportunities', authenticate, async (req, res) => {
-  if (req.user.userType !== 'nonprofit') {
-    return res.status(403).json({ error: 'Only nonprofit users can create opportunities.' });
-  }
-  if (!hasRequiredFields(req.body)) return res.status(400).json({ error: 'All fields are required.' });
-
-  const { nonprofit_name, title, description, date, time, location, end_time } = req.body;
-  try {
-    const result = await db.execute(
-      `INSERT INTO opportunities (user_id, nonprofit_name, title, description, date, time, location, end_time)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.user.id, nonprofit_name, title, description, date, time, location, end_time ?? null]
-    );
-    res.status(201).json({
-      message: 'Opportunity created successfully.',
-      opportunityId: Number(result.lastInsertRowid),
-    });
-  } catch (err) {
-    console.error('Error creating opportunity:', err);
-    res.status(500).json({ error: 'Database error.' });
-  }
+router.get('/opportunities', ...nonprofitOnly, async (req, res) => {
+  const result = await db.execute(
+    `SELECT ${EVENT_COLUMNS} FROM opportunities o WHERE o.user_id = ? ORDER BY o.date, o.time`,
+    [req.user.id]
+  );
+  res.json(result.rows.map(toEvent));
 });
 
-router.put('/opportunities/:id', authenticate, requireOwnEvent('id'), async (req, res) => {
-  if (!hasRequiredFields(req.body)) return res.status(400).json({ error: 'All fields are required.' });
+router.post('/opportunities', ...nonprofitOnly, async (req, res) => {
+  const { values, error } = readOpportunity(req.body);
+  if (error) return res.status(400).json({ error });
+  const name = await organizationName(req.user.id);
+  if (!name) return res.status(400).json({ error: 'Complete your organization profile first.' });
 
-  const { nonprofit_name, title, description, date, time, location, end_time } = req.body;
-  try {
-    await db.execute(
-      `UPDATE opportunities
-       SET nonprofit_name = ?, title = ?, description = ?, date = ?, time = ?, location = ?, end_time = ?
-       WHERE id = ?`,
-      [nonprofit_name, title, description, date, time, location, end_time ?? null, req.event.id]
-    );
-    res.json({ message: 'Opportunity updated successfully.' });
-  } catch (err) {
-    console.error('Error updating opportunity:', err);
-    res.status(500).json({ error: 'Database error.' });
-  }
+  const result = await db.execute(
+    `INSERT INTO opportunities (user_id, nonprofit_name, title, description, date, time, end_time, location)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [req.user.id, name, ...values]
+  );
+  res.status(201).json({ opportunityId: Number(result.lastInsertRowid) });
 });
 
-router.delete('/opportunities/:id', authenticate, requireOwnEvent('id'), async (req, res) => {
-  try {
-    await db.execute('DELETE FROM volunteer_signups WHERE opportunity_id = ?', [req.event.id]);
-    await db.execute('DELETE FROM opportunities WHERE id = ?', [req.event.id]);
-    res.json({ message: 'Opportunity and all volunteer signups deleted successfully.' });
-  } catch (err) {
-    console.error('Error deleting opportunity:', err);
-    res.status(500).json({ error: 'Database error: ' + err.message });
-  }
+router.put('/opportunities/:id', ...nonprofitOnly, requireOwnEvent('id'), async (req, res) => {
+  if (hasStarted(req.event)) return res.status(400).json({ error: "Events that have started can't be edited." });
+  const { values, error } = readOpportunity(req.body);
+  if (error) return res.status(400).json({ error });
+  const name = await organizationName(req.user.id);
+
+  await db.execute(
+    `UPDATE opportunities
+     SET nonprofit_name = ?, title = ?, description = ?, date = ?, time = ?, end_time = ?, location = ?
+     WHERE id = ?`,
+    [name || req.event.nonprofit_name, ...values, req.event.id]
+  );
+  res.json({ message: 'Opportunity updated.' });
+});
+
+router.delete('/opportunities/:id', ...nonprofitOnly, requireOwnEvent('id'), async (req, res) => {
+  await db.batch(
+    [
+      { sql: 'DELETE FROM volunteer_signups WHERE opportunity_id = ?', args: [req.event.id] },
+      { sql: 'DELETE FROM opportunities WHERE id = ?', args: [req.event.id] },
+    ],
+    'write'
+  );
+  res.json({ message: 'Opportunity deleted.' });
 });
 
 module.exports = router;

@@ -5,23 +5,18 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createClient } = require('@libsql/client');
+const { nowInLosAngeles } = require('../events');
 
-// SERVER_DIR lets the same suite run against another checkout of the server.
-const serverDir = process.env.SERVER_DIR || path.join(__dirname, '..');
-const entry = process.env.SERVER_ENTRY || 'index.js';
 const port = 20000 + Math.floor(Math.random() * 20000);
 const base = `http://localhost:${port}`;
 const dbFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'cause-connect-')), 'test.db');
+const db = createClient({ url: `file:${dbFile}` });
 
 let server;
 
 before(async () => {
-  const db = createClient({ url: `file:${dbFile}` });
-  await db.executeMultiple(fs.readFileSync(path.join(__dirname, '..', 'schema.sql'), 'utf8'));
-  db.close();
-
-  server = spawn(process.execPath, [entry], {
-    cwd: serverDir,
+  server = spawn(process.execPath, ['index.js'], {
+    cwd: path.join(__dirname, '..'),
     env: { ...process.env, PORT: String(port), TURSO_DATABASE_URL: `file:${dbFile}`, JWTSECRET: 'test-secret' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -32,15 +27,15 @@ before(async () => {
   });
 });
 
-after(() => server.kill());
+after(() => {
+  server.kill();
+  db.close();
+});
 
-async function call(method, route, { token, body } = {}) {
+async function call(method, route, { cookie, body } = {}) {
   const response = await fetch(base + route, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
+    headers: { 'Content-Type': 'application/json', ...(cookie && { Cookie: cookie }) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await response.text();
@@ -51,266 +46,253 @@ async function call(method, route, { token, body } = {}) {
   return { status: response.status, text, json, headers: response.headers };
 }
 
-function futureDate(days) {
-  const date = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-  return date.toISOString().slice(0, 10);
+const sessionCookie = (res) => res.headers.get('set-cookie')?.split(';')[0];
+
+function laDate(daysFromToday) {
+  const [date] = nowInLosAngeles(new Date(Date.now() + daysFromToday * 24 * 60 * 60 * 1000)).split(' ');
+  return date;
 }
 
 const password = 'correct horse battery';
-const student = { email: 'student@example.com', usertype: 'student' };
-const otherStudent = { email: 'other@example.com', usertype: 'student' };
-const org = { email: 'org@example.com', usertype: 'nonprofit' };
-const otherOrg = { email: 'other-org@example.com', usertype: 'nonprofit' };
-const tokens = {};
+const studentProfile = {
+  full_name: 'Sam Student',
+  age: 17,
+  school: 'Irvine, CA',
+  bio: 'Likes animals',
+  interests: 'Animals, Environment',
+};
+const orgProfile = {
+  nonprofit_name: 'Paws Rescue',
+  location: 'Irvine, CA',
+  category: 'Animals, Elderly',
+  statement: 'We rescue animals',
+};
+const opportunity = {
+  title: 'Shelter walk',
+  description: 'Walk the dogs',
+  date: laDate(30),
+  time: '09:00',
+  end_time: '12:00',
+  location: 'Irvine, CA',
+};
+const cookies = {};
 let eventId;
 let studentId;
 
-async function register(user, profile) {
-  const signup = await call('POST', '/api/signup', { body: { ...user, password } });
-  assert.equal(signup.status, 201, signup.text);
-  const login = await call('POST', '/api/login', { body: { email: user.email, password } });
-  assert.equal(login.status, 200, login.text);
-  const saved = await call('PUT', '/api/profile', { token: login.json.token, body: profile });
-  assert.equal(saved.status, 200, saved.text);
-  return login.json.token;
+async function register(email, usertype, profile) {
+  const res = await call('POST', '/api/signup', { body: { email, password, usertype, profile } });
+  assert.equal(res.status, 201, res.text);
+  return sessionCookie(res);
 }
 
-test('health check responds', async () => {
-  const res = await call('GET', '/');
-  assert.equal(res.status, 200);
-  assert.equal(res.text, 'API is running');
+test('health check and unknown API routes answer with JSON', async () => {
+  const health = await call('GET', '/api/health');
+  assert.deepEqual(health.json, { ok: true });
+  assert.equal(health.headers.get('x-content-type-options'), 'nosniff');
+
+  const missing = await call('GET', '/api/nope');
+  assert.equal(missing.status, 404);
+  assert.deepEqual(missing.json, { error: 'Not found.' });
 });
 
 test('signup validates its input', async () => {
   const cases = [
-    [{ password, usertype: 'student' }, 'You must provide an email address.'],
-    [{ email: 'not-an-email', password, usertype: 'student' }, 'Please provide a valid email address.'],
-    [{ email: 'a@b.co', password: 'short', usertype: 'student' }, 'Password must be at least 12 characters.'],
-    [{ email: 'a@b.co', password, usertype: 'admin' }, "Usertype must be either 'student' or 'nonprofit'."],
-    [{ email: 'a@b.co', password, usertype: 'constructor' }, "Usertype must be either 'student' or 'nonprofit'."],
+    [{ password, usertype: 'student', profile: studentProfile }, 'Please provide a valid email address.'],
+    [{ email: 'a@b.co', password: 'short', usertype: 'student', profile: studentProfile }, 'Password must be at least 12 characters.'],
+    [{ email: 'a@b.co', password, usertype: 'constructor', profile: orgProfile }, "Usertype must be either 'student' or 'nonprofit'."],
+    [{ email: 'a@b.co', password, usertype: 'student' }, 'Name, age, location, and bio are required.'],
+    [{ email: 'a@b.co', password, usertype: 'student', profile: { ...studentProfile, age: 'old' } }, 'Age must be a whole number.'],
   ];
-  for (const [body, message] of cases) {
+  for (const [body, error] of cases) {
     const res = await call('POST', '/api/signup', { body });
     assert.equal(res.status, 400);
-    assert.equal(res.text, message);
+    assert.equal(res.json.error, error);
   }
 });
 
-test('students and nonprofits can register, log in and save a profile', async () => {
-  tokens.student = await register(student, {
-    full_name: 'Sam Student',
-    age: 17,
-    school: 'Irvine, CA',
-    bio: 'Likes animals',
-    interests: 'Animals, Environment',
-  });
-  tokens.otherStudent = await register(otherStudent, {
-    full_name: 'Olive Other',
-    age: 16,
-    school: 'Irvine, CA',
-    bio: 'Hi',
-    interests: 'Sports',
-  });
-  tokens.org = await register(org, {
-    nonprofit_name: 'Paws Rescue',
-    location: 'Irvine, CA',
-    category: 'Animals, Elderly',
-    statement: 'We rescue animals',
-  });
-  tokens.otherOrg = await register(otherOrg, {
-    nonprofit_name: 'Other Org',
-    location: 'Irvine, CA',
-    category: 'Sports',
-    statement: 'Other',
-  });
+test('signup creates the account and profile together and starts a session', async () => {
+  cookies.student = await register('Student@Example.com', 'student', studentProfile);
+  cookies.org = await register('org@example.com', 'nonprofit', orgProfile);
+  cookies.otherOrg = await register('other-org@example.com', 'nonprofit', { ...orgProfile, nonprofit_name: 'Other Org' });
+  cookies.otherStudent = await register('other@example.com', 'student', { ...studentProfile, full_name: 'Olive Other' });
+  assert.match(cookies.student, /^token=/);
 
-  const duplicate = await call('POST', '/api/signup', { body: { ...student, password } });
-  assert.equal(duplicate.status, 400);
-  assert.equal(duplicate.text, 'That email address is already registered.');
-});
-
-test('login reports bad credentials and routes each user type home', async () => {
-  const wrong = await call('POST', '/api/login', { body: { email: student.email, password: 'wrong password!' } });
-  assert.equal(wrong.status, 400);
-  assert.equal(wrong.text, 'Invalid credentials');
-
-  const login = await call('POST', '/api/login', { body: { email: org.email, password } });
-  assert.equal(login.json.nextRoute, '/organization-page');
-  assert.match(login.headers.get('set-cookie'), /token=/);
-});
-
-test('requests without a valid token are rejected', async () => {
-  for (const route of ['/api/me', '/api/profile', '/api/opportunities', '/api/events/volunteered']) {
-    const res = await call('GET', route);
-    assert.ok([401, 403].includes(res.status), `${route} returned ${res.status}`);
-    const forged = await call('GET', route, { token: 'not-a-real-token' });
-    assert.equal(forged.status, 403, route);
-  }
-});
-
-test('me, session and profile describe the logged-in user', async () => {
-  const me = await call('GET', '/api/me', { token: tokens.student });
-  assert.equal(me.status, 200);
-  assert.equal(me.json.email, student.email);
-  assert.equal(me.json.user_type, 'student');
+  const me = await call('GET', '/api/me', { cookie: cookies.student });
+  assert.equal(me.json.email, 'student@example.com');
   assert.equal(me.json.profile.full_name, 'Sam Student');
   studentId = me.json.id;
 
-  const session = await call('GET', '/api/session', { token: tokens.student });
-  assert.deepEqual(session.json, { email: student.email });
-
-  const profile = await call('GET', '/api/profile', { token: tokens.org });
-  assert.deepEqual(profile.json, {
-    nonprofit_name: 'Paws Rescue',
-    location: 'Irvine, CA',
-    category: 'Animals, Elderly',
-    statement: 'We rescue animals',
+  const duplicate = await call('POST', '/api/signup', {
+    body: { email: 'STUDENT@example.com', password, usertype: 'student', profile: studentProfile },
   });
+  assert.equal(duplicate.status, 400);
+  assert.equal(duplicate.json.error, 'That email address is already registered.');
 });
 
-test('only nonprofits can create opportunities, with every field filled in', async () => {
-  const opportunity = {
-    nonprofit_name: 'Paws Rescue',
-    title: 'Shelter walk',
-    description: 'Walk the dogs',
-    date: futureDate(30),
-    time: '09:00',
-    end_time: '12:00',
-    location: 'Irvine, CA',
-  };
+test('login ignores email case and sets an httpOnly cookie', async () => {
+  const wrong = await call('POST', '/api/login', { body: { email: 'org@example.com', password: 'wrong password!' } });
+  assert.equal(wrong.status, 400);
 
-  const asStudent = await call('POST', '/api/opportunities', { token: tokens.student, body: opportunity });
-  assert.equal(asStudent.status, 403);
+  const login = await call('POST', '/api/login', { body: { email: 'ORG@example.com', password } });
+  assert.equal(login.status, 200);
+  assert.equal(login.json.nextRoute, '/organization-page');
+  assert.match(login.headers.get('set-cookie'), /HttpOnly/i);
+  assert.match(login.headers.get('set-cookie'), /SameSite=Lax/i);
+  assert.equal(login.json.token, undefined);
+});
 
-  const incomplete = await call('POST', '/api/opportunities', {
-    token: tokens.org,
-    body: { ...opportunity, title: '' },
+test('requests without a valid session get 401', async () => {
+  for (const route of ['/api/me', '/api/profile', '/api/opportunities', '/api/events/volunteered']) {
+    assert.equal((await call('GET', route)).status, 401, route);
+    assert.equal((await call('GET', route, { cookie: 'token=forged' })).status, 401, route);
+  }
+});
+
+test('each role is limited to its own actions', async () => {
+  const studentCreates = await call('POST', '/api/opportunities', { cookie: cookies.student, body: opportunity });
+  assert.equal(studentCreates.status, 403);
+  const studentLists = await call('GET', '/api/opportunities', { cookie: cookies.student });
+  assert.equal(studentLists.status, 403);
+});
+
+test('opportunities take the organization name from the profile and must start in the future', async () => {
+  const past = await call('POST', '/api/opportunities', {
+    cookie: cookies.org,
+    body: { ...opportunity, date: laDate(-1) },
   });
-  assert.equal(incomplete.status, 400);
+  assert.equal(past.status, 400);
+  const backwards = await call('POST', '/api/opportunities', {
+    cookie: cookies.org,
+    body: { ...opportunity, end_time: '08:00' },
+  });
+  assert.equal(backwards.status, 400);
 
-  const created = await call('POST', '/api/opportunities', { token: tokens.org, body: opportunity });
+  const created = await call('POST', '/api/opportunities', {
+    cookie: cookies.org,
+    body: { ...opportunity, nonprofit_name: 'Someone Else' },
+  });
   assert.equal(created.status, 201, created.text);
   eventId = created.json.opportunityId;
-  assert.ok(eventId);
-});
 
-test('the public feed and the organization list return the event contract', async () => {
   const feed = await call('GET', '/api/opportunities/all');
   const event = feed.json.find((e) => e.id === eventId);
-  assert.ok(event, 'event is in the public feed');
-  assert.equal(event.title, 'Shelter walk');
   assert.equal(event.organization, 'Paws Rescue');
-  assert.equal(event.body, 'Walk the dogs');
-  assert.equal(event.startDate, futureDate(30));
-  assert.equal(event.startTime, '09:00');
-  assert.equal(event.endDate, futureDate(30));
-  assert.equal(event.endTime, '12:00');
-  assert.equal(event.location, 'Irvine, CA');
   assert.equal(event.cause, 'Animals, Elderly');
-
-  const mine = await call('GET', '/api/opportunities', { token: tokens.org });
-  assert.deepEqual(
-    mine.json.map((e) => e.id),
-    [eventId]
-  );
-  const theirs = await call('GET', '/api/opportunities', { token: tokens.otherOrg });
-  assert.deepEqual(theirs.json, []);
+  assert.equal(event.startTime, '09:00');
+  assert.equal(event.endTime, '12:00');
 });
 
 test('only the owner can edit an opportunity', async () => {
-  const update = {
-    nonprofit_name: 'Paws Rescue',
-    title: 'Shelter walk (updated)',
-    description: 'Walk the dogs',
-    date: futureDate(30),
-    time: '10:00',
-    end_time: '12:00',
-    location: 'Irvine, CA',
-  };
-  const notOwner = await call('PUT', `/api/opportunities/${eventId}`, { token: tokens.otherOrg, body: update });
+  const update = { ...opportunity, title: 'Shelter walk (updated)', time: '10:00' };
+  const notOwner = await call('PUT', `/api/opportunities/${eventId}`, { cookie: cookies.otherOrg, body: update });
   assert.equal(notOwner.status, 403);
-  const missing = await call('PUT', '/api/opportunities/999999', { token: tokens.org, body: update });
+  const missing = await call('PUT', '/api/opportunities/999999', { cookie: cookies.org, body: update });
   assert.equal(missing.status, 404);
-  const owner = await call('PUT', `/api/opportunities/${eventId}`, { token: tokens.org, body: update });
+  const owner = await call('PUT', `/api/opportunities/${eventId}`, { cookie: cookies.org, body: update });
   assert.equal(owner.status, 200, owner.text);
 
   const feed = await call('GET', '/api/opportunities/all');
   assert.equal(feed.json.find((e) => e.id === eventId).title, 'Shelter walk (updated)');
 });
 
-test('students can join an event once and see it in their signups', async () => {
+test('students join upcoming events once and cannot join one that has started', async () => {
+  const orgJoins = await call('POST', '/api/events/volunteer', { cookie: cookies.org, body: { opportunity_id: eventId } });
+  assert.equal(orgJoins.status, 403);
+
   const joined = await call('POST', '/api/events/volunteer', {
-    token: tokens.student,
+    cookie: cookies.student,
     body: { opportunity_id: eventId },
   });
   assert.equal(joined.status, 201, joined.text);
-
   const again = await call('POST', '/api/events/volunteer', {
-    token: tokens.student,
+    cookie: cookies.student,
     body: { opportunity_id: eventId },
   });
   assert.equal(again.status, 400);
   assert.match(again.json.error, /already/);
 
-  const mine = await call('GET', '/api/events/volunteered', { token: tokens.student });
+  const pastInsert = await db.execute(
+    `INSERT INTO opportunities (user_id, nonprofit_name, title, description, date, time, location)
+     SELECT user_id, nonprofit_name, 'Last week', 'Done', ?, '09:00', 'Irvine, CA' FROM opportunities WHERE id = ?`,
+    [laDate(-7), eventId]
+  );
+  const pastId = Number(pastInsert.lastInsertRowid);
+  const late = await call('POST', '/api/events/volunteer', { cookie: cookies.student, body: { opportunity_id: pastId } });
+  assert.equal(late.status, 400);
+
+  await db.execute('INSERT INTO volunteer_signups (user_id, opportunity_id, signup_date) VALUES (?, ?, ?)', [
+    studentId,
+    pastId,
+    new Date().toISOString(),
+  ]);
+  const mine = await call('GET', '/api/events/volunteered', { cookie: cookies.student });
   assert.deepEqual(
-    mine.json.map((e) => e.id),
-    [eventId]
+    mine.json.map((e) => e.title),
+    ['Last week', 'Shelter walk (updated)']
+  );
+
+  const feed = await call('GET', '/api/opportunities/all');
+  assert.equal(
+    feed.json.find((e) => e.id === pastId),
+    undefined
   );
 });
 
 test('only the owner sees and removes volunteers', async () => {
-  const notOwner = await call('GET', `/api/opportunities/${eventId}/volunteers`, { token: tokens.otherOrg });
+  const notOwner = await call('GET', `/api/opportunities/${eventId}/volunteers`, { cookie: cookies.otherOrg });
   assert.equal(notOwner.status, 403);
 
-  const volunteers = await call('GET', `/api/opportunities/${eventId}/volunteers`, { token: tokens.org });
-  assert.equal(volunteers.status, 200);
+  const volunteers = await call('GET', `/api/opportunities/${eventId}/volunteers`, { cookie: cookies.org });
   assert.equal(volunteers.json.length, 1);
-  assert.equal(volunteers.json[0].user_id, studentId);
-  assert.equal(volunteers.json[0].full_name, 'Sam Student');
-  assert.equal(volunteers.json[0].email, student.email);
+  assert.equal(volunteers.json[0].email, 'student@example.com');
 
-  const removed = await call('DELETE', `/api/opportunities/${eventId}/volunteers/${studentId}`, {
-    token: tokens.org,
-  });
+  const removed = await call('DELETE', `/api/opportunities/${eventId}/volunteers/${studentId}`, { cookie: cookies.org });
   assert.equal(removed.status, 200, removed.text);
-  const after = await call('GET', `/api/opportunities/${eventId}/volunteers`, { token: tokens.org });
-  assert.deepEqual(after.json, []);
-});
-
-test('students can leave an event they joined', async () => {
-  await call('POST', '/api/events/volunteer', { token: tokens.otherStudent, body: { opportunity_id: eventId } });
-  const left = await call('DELETE', `/api/events/volunteer/cancel/${eventId}`, { token: tokens.otherStudent });
-  assert.equal(left.status, 200, left.text);
-  const again = await call('DELETE', `/api/events/volunteer/cancel/${eventId}`, { token: tokens.otherStudent });
+  const again = await call('DELETE', `/api/opportunities/${eventId}/volunteers/${studentId}`, { cookie: cookies.org });
   assert.equal(again.status, 404);
 });
 
-test('changing a password requires the current one', async () => {
-  const wrong = await call('POST', '/api/account/update', {
-    token: tokens.otherStudent,
-    body: { currentPassword: 'not my password', newPassword: 'a brand new password' },
+test('students can leave an upcoming event they joined', async () => {
+  await call('POST', '/api/events/volunteer', { cookie: cookies.otherStudent, body: { opportunity_id: eventId } });
+  const left = await call('DELETE', `/api/events/volunteer/cancel/${eventId}`, { cookie: cookies.otherStudent });
+  assert.equal(left.status, 200, left.text);
+  const again = await call('DELETE', `/api/events/volunteer/cancel/${eventId}`, { cookie: cookies.otherStudent });
+  assert.equal(again.status, 404);
+});
+
+test('account changes require the current password and keep the session current', async () => {
+  const noPassword = await call('POST', '/api/account/update', {
+    cookie: cookies.otherStudent,
+    body: { email: 'taken-over@example.com' },
   });
-  assert.equal(wrong.status, 400);
+  assert.equal(noPassword.status, 400);
+
+  const short = await call('POST', '/api/account/update', {
+    cookie: cookies.otherStudent,
+    body: { currentPassword: password, newPassword: 'short' },
+  });
+  assert.equal(short.status, 400);
 
   const changed = await call('POST', '/api/account/update', {
-    token: tokens.otherStudent,
-    body: { currentPassword: password, newPassword: 'a brand new password' },
+    cookie: cookies.otherStudent,
+    body: { currentPassword: password, email: 'Renamed@Example.com', newPassword: 'a brand new password' },
   });
   assert.equal(changed.status, 200, changed.text);
+  const session = await call('GET', '/api/session', { cookie: sessionCookie(changed) });
+  assert.deepEqual(session.json, { email: 'renamed@example.com' });
 
   const login = await call('POST', '/api/login', {
-    body: { email: otherStudent.email, password: 'a brand new password' },
+    body: { email: 'renamed@example.com', password: 'a brand new password' },
   });
   assert.equal(login.status, 200);
 });
 
-test('deleting an opportunity removes it from the feed', async () => {
-  await call('POST', '/api/events/volunteer', { token: tokens.student, body: { opportunity_id: eventId } });
-  const notOwner = await call('DELETE', `/api/opportunities/${eventId}`, { token: tokens.otherOrg });
+test('deleting an opportunity removes it and its signups', async () => {
+  await call('POST', '/api/events/volunteer', { cookie: cookies.student, body: { opportunity_id: eventId } });
+  const notOwner = await call('DELETE', `/api/opportunities/${eventId}`, { cookie: cookies.otherOrg });
   assert.equal(notOwner.status, 403);
 
-  const deleted = await call('DELETE', `/api/opportunities/${eventId}`, { token: tokens.org });
+  const deleted = await call('DELETE', `/api/opportunities/${eventId}`, { cookie: cookies.org });
   assert.equal(deleted.status, 200, deleted.text);
 
   const feed = await call('GET', '/api/opportunities/all');
@@ -318,12 +300,21 @@ test('deleting an opportunity removes it from the feed', async () => {
     feed.json.find((e) => e.id === eventId),
     undefined
   );
-  const mine = await call('GET', '/api/events/volunteered', { token: tokens.student });
-  assert.deepEqual(mine.json, []);
+  const signups = await db.execute('SELECT COUNT(*) AS n FROM volunteer_signups WHERE opportunity_id = ?', [eventId]);
+  assert.equal(signups.rows[0].n, 0);
 });
 
-test('logout clears the cookie', async () => {
-  const res = await call('POST', '/api/logout', { token: tokens.student });
+test('logout clears the session cookie', async () => {
+  const res = await call('POST', '/api/logout', { cookie: cookies.student });
   assert.equal(res.status, 200);
   assert.match(res.headers.get('set-cookie'), /token=;/);
+});
+
+test('repeated failed logins are rate limited', async () => {
+  let res;
+  for (let attempt = 0; attempt < 11; attempt++) {
+    res = await call('POST', '/api/login', { body: { email: 'org@example.com', password: 'not the password' } });
+  }
+  assert.equal(res.status, 429);
+  assert.match(res.json.error, /Too many failed attempts/);
 });

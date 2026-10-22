@@ -5,16 +5,27 @@ const TIME_ZONE = 'America/Los_Angeles';
 const EVENT_COLUMNS =
   'o.*, (SELECT category FROM nonprofit_profiles WHERE user_id = o.user_id LIMIT 1) AS organization_causes';
 
-function todayInLosAngeles() {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date());
-  const part = (type) => parts.find((p) => p.type === type).value;
-  return `${part('year')}-${part('month')}-${part('day')}`;
+// Events are stored as Los Angeles wall-clock date and time. Rendering "now" in
+// the same 'YYYY-MM-DD HH:MM' shape as date || ' ' || time makes "has this
+// event started" a string comparison, independent of the server's timezone.
+function nowInLosAngeles(now = new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: TIME_ZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(now)
+      .map((part) => [part.type, part.value])
+  );
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
 }
+
+const hasStarted = (event) => `${event.date} ${event.time}` <= nowInLosAngeles();
 
 const toEvent = (row) => ({
   id: row.id,
@@ -29,4 +40,4 @@ const toEvent = (row) => ({
   cause: row.organization_causes || '',
 });
 
-module.exports = { EVENT_COLUMNS, todayInLosAngeles, toEvent };
+module.exports = { EVENT_COLUMNS, nowInLosAngeles, hasStarted, toEvent };
