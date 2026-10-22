@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import "../views/styles/eventCardCarousel.css";
-import { Event } from "../types/types";
+import { Event, UserType } from "../types/types";
 
 interface EventCardCarouselProps {
   events: Event[];
-  userType: "student" | "organization";
-  renderCard: (event: Event, userType: "student" | "organization") => React.ReactElement;
+  userType: UserType;
+  renderCard: (event: Event, userType: UserType) => React.ReactElement;
 }
 
 const EventCardCarousel: React.FC<EventCardCarouselProps> = ({ events, renderCard, userType }) => {
