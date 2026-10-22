@@ -7,14 +7,17 @@ Cause Connect matches students with volunteer opportunities posted by nonprofits
 ```
 client/                React app (Create React App, TypeScript)
   src/utils/api.ts     every call the client makes to the API
-  src/utils/time.ts    date/time formatting and the started/upcoming split
+  src/utils/time.ts    date/time formatting and the Los Angeles "has it started" rule
   src/utils/causes.ts  the cause list shared by profiles and matching
   src/types/types.ts   the shapes the API returns
-server/                Express API over Turso (libsql / SQLite)
+server/                Express API over Turso (libsql / SQLite); also serves the built client
   schema.sql           the tables the server relies on
   routes/              account, opportunities, signups
   test/api.test.js     tests for every route the client uses
+render.yaml            the production service
 ```
+
+Event dates and times are stored and compared as America/Los_Angeles wall-clock time on both sides.
 
 ## Run it locally
 
@@ -33,29 +36,49 @@ npm install --prefix client
 npm start --prefix client
 ```
 
-Set `JWTSECRET` in `server/.env` before starting the server. The API runs on http://localhost:5001 and the app on http://localhost:3000. Without `TURSO_DATABASE_URL` the server stores data in `server/local.db`, so local development never touches the production database.
+Set `JWTSECRET` in `server/.env` before starting the server. Open http://localhost:3000; the dev server forwards `/api` to the API on port 5001. Without `TURSO_DATABASE_URL` the server stores data in `server/local.db`, so local development never touches the production database.
 
 ## Test
 
 ```bash
 npm test --prefix server
-CI=true npm run build --prefix client
+npm test --prefix client -- --watchAll=false
+npm run build --prefix client
 ```
 
-The server tests start the API against a throwaway database and exercise every route the client calls.
+CI runs the same three commands on every pull request.
 
 ## Configuration
 
-| Variable | Where | Purpose |
-| --- | --- | --- |
-| `JWTSECRET` | server | Signs session tokens. Required. |
-| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | server | Production database. Leave unset locally. |
-| `CLIENT_ORIGIN` | server | Browser origin allowed by CORS. Defaults to `https://causeconnectus.netlify.app`. |
-| `PORT` | server | Defaults to 5001. |
-| `REACT_APP_API_URL` | client, at build time | API base URL. Defaults to `https://causeconnectbackend.onrender.com/api`; `client/.env.development` points `npm start` at localhost. |
+| Variable | Purpose |
+| --- | --- |
+| `JWTSECRET` | Signs session cookies. Required. |
+| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Production database. Required when `NODE_ENV=production`; leave unset locally. |
+| `NODE_ENV` | `production` makes the session cookie `Secure`. |
+| `PORT` | Defaults to 5001. |
 
 ## Deployment
 
-- The app is served by Netlify at https://causeconnectus.netlify.app, built from `client/` as described in `netlify.toml`.
-- The API is a Render web service at https://causeconnectbackend.onrender.com. It must install and start from `server/` (`npm install`, then `npm start`). The entry file is `index.js`; the old `newServer.js` is gone, so a start command that names it needs updating.
-- The database is Turso. The production tables were created by hand before `schema.sql` existed; the server applies `schema.sql` at startup with `CREATE TABLE IF NOT EXISTS`, which leaves existing tables as they are.
+Production is one Render web service, defined in `render.yaml`. It builds the client, then starts the API, which serves the app and `/api` from the same origin. That keeps the session cookie first-party in every browser and removes the need for CORS.
+
+To create it, open Render → New → Blueprint, choose this repository, and enter `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`. Render generates `JWTSECRET`. The health check is `/api/health`.
+
+On the free plan the service sleeps after 15 minutes without traffic, and the next request waits about a minute for it to wake. A paid instance avoids that.
+
+### Database constraints
+
+The production tables were created by hand before `schema.sql` existed, so they may lack the uniqueness constraints a fresh database gets. Once these queries return no rows:
+
+```sql
+SELECT lower(email), COUNT(*) FROM users GROUP BY lower(email) HAVING COUNT(*) > 1;
+SELECT user_id, COUNT(*) FROM nonprofit_profiles GROUP BY user_id HAVING COUNT(*) > 1;
+SELECT opportunity_id, user_id, COUNT(*) FROM volunteer_signups GROUP BY 1, 2 HAVING COUNT(*) > 1;
+```
+
+add the constraints with:
+
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower ON users (lower(email));
+CREATE UNIQUE INDEX IF NOT EXISTS nonprofit_profiles_user ON nonprofit_profiles (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS volunteer_signups_once ON volunteer_signups (opportunity_id, user_id);
+```
