@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const path = require("path");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const cookieParser = require("cookie-parser");
@@ -8,19 +9,35 @@ const { createClient } = require("@libsql/client");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+
 const opportunitiesRouter = require('./src/routes/createEvents.js');
 const reserveRouter = require('./src/routes/reserveEvents.js'); 
 const userRouter = require('./src/routes/profiles.js'); 
 
+app.set('trust proxy', 1);
+
+// CORS configuration - allow Netlify frontend
+app.use(cors({
+  origin: "https://causeconnectus.netlify.app", 
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}));
+
+// Additional headers for Safari compatibility
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  next();
+});
+
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({
-  origin: "https://causeconnectus.onrender.com", // frontend origin
-  credentials: true,
-}));
 
-app.use('/api', opportunitiesRouter); 
+// API routes
+app.use('/api', opportunitiesRouter);
 app.use('/api', reserveRouter);
 app.use('/api', userRouter);
 
@@ -30,9 +47,12 @@ const db = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-// Helper: authenticate middleware
+// Helper: authenticate middleware - supports both Authorization header and cookies
 const authenticateToken = (req, res, next) => {
-  const token = req.cookies.token;
+  // Check for token in Authorization header first, then fall back to cookies
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1] || req.cookies.token;
+  
   if (!token) return res.sendStatus(401);
 
   jwt.verify(token, process.env.JWTSECRET, (err, user) => {
@@ -46,22 +66,17 @@ const authenticateToken = (req, res, next) => {
 const validateEmail = (email) => {
   if (!email) return false;
   
-  // Check for @ symbol
   if (!email.includes('@')) return false;
   
-  // Split by @ and check for domain part
   const parts = email.split('@');
   if (parts.length !== 2) return false;
   
   const [localPart, domainPart] = parts;
   
-  // Check that both parts exist
   if (!localPart || !domainPart) return false;
   
-  // Check that domain part contains a dot
   if (!domainPart.includes('.')) return false;
   
-  // Check that there's content after the dot
   const domainParts = domainPart.split('.');
   const lastPart = domainParts[domainParts.length - 1];
   if (!lastPart || lastPart.length < 2) return false;
@@ -76,27 +91,23 @@ app.get("/", (req, res) => {
   res.send("API is running");
 });
 
-// Signup - Updated for email
+// Signup
 app.post("/api/signup", async (req, res) => {
   const { email, password, usertype } = req.body;
   
-  // Email validation
   if (!email) return res.status(400).send("You must provide an email address.");
   if (!validateEmail(email)) {
     return res.status(400).send("Please provide a valid email address.");
   }
 
-  // Password validation (keeping existing validation)
   if (!password) return res.status(400).send("You must provide a password.");
   if (password.length < 12) return res.status(400).send("Password must be at least 12 characters.");
   if (password.length > 70) return res.status(400).send("Password cannot exceed 70 characters.");
 
-  // Usertype validation
   if (!["student", "nonprofit"].includes(usertype)) {
     return res.status(400).send("Usertype must be either 'student' or 'nonprofit'.");
   }
 
-  // Check if email already exists
   const existingUser = await db.execute({
     sql: "SELECT * FROM users WHERE email = ?",
     args: [email]
@@ -119,7 +130,7 @@ app.post("/api/signup", async (req, res) => {
   }
 });
 
-// Login - Fixed to properly use email
+// Login - Updated to return token in response
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
   
@@ -139,30 +150,32 @@ app.post("/api/login", async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).send("Invalid credentials");
     
-    // Create JWT token with email instead of username
     const token = jwt.sign(
       { email: user.email, userType: user.user_type, id: user.id }, 
       process.env.JWTSECRET,
       { expiresIn: "1h" }
     );
     
-    res.cookie("token", token, {
+    // Set cookie as backup (for browsers that support it)
+    res.cookie('token', token, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: false,
+      secure: true,
+      sameSite: 'None',
+      maxAge: 3600000, // 1 hour in milliseconds
+      path: '/',
     });
     
     const userType = user.user_type;
     let nextRoute = "";
     
     if (userType === "nonprofit") {
-      const nonprofitProfile = await db.execute({
+      await db.execute({
         sql: "SELECT 1 FROM nonprofit_profiles WHERE user_id = ?",
         args: [user.id],
       });
       nextRoute = "/organization-page";
     } else if (userType === "student") {
-      const studentProfile = await db.execute({
+      await db.execute({
         sql: "SELECT interests FROM student_profiles WHERE user_id = ?",
         args: [user.id],
       });
@@ -175,6 +188,7 @@ app.post("/api/login", async (req, res) => {
       success: true,
       userType,
       nextRoute,
+      token, // Include token in response for localStorage storage
     });
   } catch (err) {
     console.error("[LOGIN] Error during login:", err);
@@ -182,12 +196,11 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// Get current user info - Updated for email
+// Get current user info
 app.get("/api/me", authenticateToken, async (req, res) => {
-  const { id, userType } = req.user;  // From the JWT token
+  const { id, userType } = req.user;
 
   try {
-    // Base user info from `users` table - updated to use email
     const baseResult = await db.execute({
       sql: "SELECT id, email, user_type FROM users WHERE id = ?",
       args: [id],
@@ -197,7 +210,6 @@ app.get("/api/me", authenticateToken, async (req, res) => {
 
     const baseUser = baseResult.rows[0];
 
-    // Extend with profile data based on user type
     let profile = null;
 
     if (userType === "nonprofit") {
@@ -223,23 +235,34 @@ app.get("/api/me", authenticateToken, async (req, res) => {
   }
 });
 
-// Logout
+// Logout - Updated to also clear localStorage token
 app.post("/api/logout", (req, res) => {
   res.clearCookie("token");
-  res.send("Logged out");
+  res.json({ success: true, message: "Logged out" });
 });
 
-// Session check - Updated to return email
+// Session check
 app.get("/api/session", authenticateToken, (req, res) => {
   res.json({ email: req.user.email });
 });
 
-// Protected example route - Updated to use email
+// Protected example route
 app.get("/api/protected", authenticateToken, (req, res) => {
   res.send(`Welcome ${req.user.email}, this is protected data.`);
 });
 
+// Serve React build files in production
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files from the React app build folder
+  app.use(express.static(path.join(__dirname, '../client/build')));
+
+  // Handle React routing, return all requests to React app
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  });
+}
+
 // Start server
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

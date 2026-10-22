@@ -12,16 +12,21 @@ const db = createClient({
 
 // Middleware to validate JWT and extract user info
 const authenticate = (req, res, next) => {
-  const token = req.cookies.token;  // assuming the token is stored in a cookie
+  // Check for token in Authorization header first, then fall back to cookies
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1] || req.cookies.token;
+  
   if (!token) {
     return res.status(403).json({ error: 'Authentication required.' });
   }
 
   jwt.verify(token, process.env.JWTSECRET || '', (err, decoded) => {
     if (err) {
+      console.error('JWT verification failed:', err.message);
       return res.status(403).json({ error: 'Invalid token.' });
     }
-    req.body.userid = decoded.id;  // Attach user info to request body
+    req.body.userid = decoded.id;
+    req.body.userType = decoded.userType;
     next();
   });
 };

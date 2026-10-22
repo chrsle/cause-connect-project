@@ -4,6 +4,7 @@ import avatar from "../default-avatar.png";
 import NavBar from "../components/navBar";
 import { getUserProfile, updateUserProfile } from "../utils/profile-utils";
 import { createAvatarFromName } from "../utils/profile-pic-utils";
+import { fetchWithAuth } from "../utils/user-utils";
 
 interface StudentProfile {
   full_name: string;
@@ -39,11 +40,11 @@ function UserProfile() {
   });
 
   const availableInterests = [
-  "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
-              "Environment", "Global – Local Based", "Health & Disease", "Homeless", "Hunger & Poverty",
-              "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", 
-              "Sports", "Music/Art", "Engineering", "Mathematics", "Science", "Social Justice"
-];
+    "Animals", "Children & Youth", "Cultural & Education", "Disabilities", "Disaster Relief", "Elderly",
+    "Environment", "Global – Local Based", "Health & Disease", "Homeless", "Hunger & Poverty",
+    "International", "Military Charities", "Racial Equality", "Service & Benevolence Clubs", "Women's Issues", 
+    "Sports", "Music/Art", "Engineering", "Mathematics", "Science", "Social Justice"
+  ];
 
   // Fetch user profile data on component mount
   useEffect(() => {
@@ -52,30 +53,18 @@ function UserProfile() {
         setLoading(true);
         setError(null);
         
-        // Helper function for API calls (same as in NavBar)
-        const makeRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', data?: any) => {
-          const headers: HeadersInit = {
-            'Content-Type': 'application/json',
-          };
-
-          const requestOptions: RequestInit = {
-            method,
-            headers,
-            credentials: 'include', 
-            body: data ? JSON.stringify(data) : undefined,
-          };
-
-          const response = await fetch(url, requestOptions);
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'An error occurred');
-          }
-          return await response.json();
-        };
-
-        const API_BASE = "http://localhost:5001/api";
+        const API_BASE = "https://causeconnectbackend.onrender.com/api";
         
-        const data = await makeRequest(`${API_BASE}/me`, 'GET');
+        const response = await fetchWithAuth(`${API_BASE}/me`, {
+          method: 'GET'
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch user data');
+        }
+
+        const data = await response.json();
         console.log('User data received:', data);
         
         if (data && data.profile) {
@@ -321,7 +310,7 @@ function UserProfile() {
                 <span className="info-icon">❤️</span> Interests
               </h2>
               {editMode ? (
-                  <div className="interests-dropdown-container">
+                <div className="interests-dropdown-container">
                   <div className="selected-interests">
                     {selectedInterests.map((interest, index) => (
                       <span key={index} className="selected-interest">
@@ -376,7 +365,7 @@ function UserProfile() {
           </div>
         </div>
       </div>
-      </>
+    </>
   );
 }
 

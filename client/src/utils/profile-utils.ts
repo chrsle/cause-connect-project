@@ -1,20 +1,49 @@
-const API_BASE = "http://localhost:5001/api";
+const API_BASE = "https://causeconnectbackend.onrender.com/api";
 
-// Utility function to make API calls with authentication token (reuse your existing function)
-const makeRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', data?: any) => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+// Token management functions (reuse from user-utils)
+const getAuthToken = (): string | null => {
+  return localStorage.getItem('token');
+};
+
+// Generic fetch function with authentication
+const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const token = getAuthToken();
+  
+  const config: RequestInit = {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...options.headers,
+    },
   };
 
+  try {
+    const response = await fetch(url, config);
+    
+    // If we get a 401, the token is likely expired
+    if (response.status === 401) {
+      localStorage.removeItem('token');
+      // Optionally redirect to login page or trigger a logout
+      // window.location.href = '/login';
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('API request failed:', error);
+    throw error;
+  }
+};
+
+// Utility function to make API calls with authentication token
+const makeRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', data?: any) => {
   const requestOptions: RequestInit = {
     method,
-    headers,
-    credentials: 'include', // send cookies for auth
     body: data ? JSON.stringify(data) : undefined,
   };
 
   try {
-    const response = await fetch(url, requestOptions);
+    const response = await fetchWithAuth(url, requestOptions);
 
     if (!response.ok) {
       const errorData = await response.json();

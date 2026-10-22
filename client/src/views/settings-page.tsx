@@ -3,7 +3,7 @@ import "./styles/settingsPage.css";
 import NavBar from "../components/navBar";
 import { useNavigate } from 'react-router-dom';
 import { getUserProfile } from '../utils/profile-utils';
-import { getSession } from '../utils/user-utils';
+import { getSession, fetchWithAuth } from '../utils/user-utils';
 
 interface UserProfile {
   full_name?: string;
@@ -114,12 +114,8 @@ const SettingsPage = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5001/api/account/update', {
+      const response = await fetchWithAuth('https://causeconnectbackend.onrender.com/api/account/update', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
         body: JSON.stringify(updateData),
       });
 

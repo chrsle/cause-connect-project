@@ -1,22 +1,51 @@
-const API_BASE = "http://localhost:5001/api";
+// opportunity-utils.ts - Updated to use JWT token authentication
+const API_BASE = "https://causeconnectbackend.onrender.com/api";
+
+// Token management functions (reuse from user-utils)
+const getAuthToken = (): string | null => {
+  return localStorage.getItem('token');
+};
+
+// Generic fetch function with authentication
+const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const token = getAuthToken();
+  
+  const config: RequestInit = {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...options.headers,
+    },
+  };
+
+  try {
+    const response = await fetch(url, config);
+    
+    // If we get a 401, the token is likely expired
+    if (response.status === 401) {
+      localStorage.removeItem('token');
+      // Optionally redirect to login page or trigger a logout
+      // window.location.href = '/login';
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('API request failed:', error);
+    throw error;
+  }
+};
 
 // Utility function to make API calls with authentication token
 const makeRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', data?: any) => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-
   const requestOptions: RequestInit = {
     method,
-    headers,
-    credentials: 'include', 
     body: data ? JSON.stringify(data) : undefined,
   };
 
   try {
-    const response = await fetch(url, requestOptions);
+    const response = await fetchWithAuth(url, requestOptions);
 
-    // Handle non-200 status codes
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || 'An error occurred');
@@ -126,16 +155,12 @@ export const deleteOpportunity = async (id: number) => {
   }
 };
 
-// Function to get opportunities near a location (without authentication for students)
+// Function to get opportunities near a location (updated to use JWT auth)
 export const getNearbyOpportunities = async (location: string, radius: number = 25) => {
   try {
     const url = `${API_BASE}/opportunities/nearby?location=${encodeURIComponent(location)}&radius=${radius}`;
-    const response = await fetch(url, {
+    const response = await fetchWithAuth(url, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include'
     });
     
     if (!response.ok) {
