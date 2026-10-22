@@ -13,7 +13,6 @@ interface EventCardProps {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// The "Upcoming" badge marks events that start within the next seven days.
 const startsThisWeek = (event: Event) => {
   const msUntilStart = eventStart(event).getTime() - Date.now();
   return msUntilStart > 0 && Math.ceil(msUntilStart / DAY_MS) <= 7;
