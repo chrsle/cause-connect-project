@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import NavBar from "../components/navBar";
-import { dummyOrganization } from "../constants/dummyOrgs";
 import { Event, NonprofitProfile, Volunteer } from "../types/types";
 import { getEventVolunteers, getMyOpportunities, getNonprofitProfile, removeVolunteer } from "../utils/api";
 import { formatDate, formatTime, splitPastAndUpcoming } from "../utils/time";
@@ -153,7 +152,7 @@ function OrgMyEvents() {
       <div className="landing-page__content">
         <div className="landing-page-header">
           <h1 className="landing-page__greeting">
-            Hello, <span className="highlight">{organizationProfile?.nonprofit_name || dummyOrganization.name}</span>
+            Hello, <span className="highlight">{organizationProfile?.nonprofit_name || 'there'}</span>
           </h1>
           <p className="landing-page__welcome">
             Here are your events and <span className="highlight">volunteers</span>

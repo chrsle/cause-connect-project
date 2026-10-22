@@ -52,35 +52,32 @@ const SettingsPage = () => {
   };
 
   const handleAccountSave = async () => {
-    if (formData.newPassword) {
-      if (formData.newPassword !== formData.confirmPassword) {
-        alert("New passwords do not match.");
-        return;
-      }
-      if (!formData.currentPassword) {
-        alert("Current password is required to set a new password.");
-        return;
-      }
-      if (formData.newPassword.length < 8) {
-        alert("New password must be at least 8 characters long.");
-        return;
-      }
-    }
-
-    const changes: { email?: string; currentPassword?: string; newPassword?: string } = {};
-    if (formData.email !== sessionEmail) changes.email = formData.email;
-    if (formData.newPassword) {
-      changes.currentPassword = formData.currentPassword;
-      changes.newPassword = formData.newPassword;
-    }
-    if (Object.keys(changes).length === 0) {
+    const emailChanged = formData.email.trim().toLowerCase() !== sessionEmail;
+    if (!emailChanged && !formData.newPassword) {
       alert('No changes to save.');
+      return;
+    }
+    if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
+      alert("New passwords do not match.");
+      return;
+    }
+    if (formData.newPassword && formData.newPassword.length < 12) {
+      alert("New password must be at least 12 characters long.");
+      return;
+    }
+    if (!formData.currentPassword) {
+      alert("Enter your current password to save changes.");
       return;
     }
 
     try {
-      await updateAccount(changes);
+      await updateAccount({
+        currentPassword: formData.currentPassword,
+        ...(emailChanged && { email: formData.email }),
+        ...(formData.newPassword && { newPassword: formData.newPassword }),
+      });
       alert('Account settings updated successfully!');
+      if (emailChanged) setSessionEmail(formData.email.trim().toLowerCase());
       setFormData((prev) => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
     } catch (error) {
       alert(`Error updating settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -180,11 +177,17 @@ const SettingsPage = () => {
                     />
                   </div>
 
-                  <div className="email-disclaimer">
-                    <div className="info-card">
-                      <h4>⚠️ Important Notice</h4>
-                      <p>After changing your email address, please log out and log back in with your new email to see the updated information reflected throughout the application.</p>
-                    </div>
+                  <div className="form-group">
+                    <label className="form-label">Current Password</label>
+                    <input
+                      type="password"
+                      name="currentPassword"
+                      className="form-input"
+                      value={formData.currentPassword}
+                      onChange={handleAccountChange}
+                      autoComplete="current-password"
+                      placeholder="Enter your current password"
+                    />
                   </div>
 
                   <div className="action-buttons">

@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import "../views/styles/registration.css";
-import { login, saveProfile, signup } from "../utils/api";
+import { signup } from "../utils/api";
 import { CAUSES, joinCauses } from "../utils/causes";
+import { UserType } from "../types/types";
 
 const isValidEmail = (email: string) => {
   const parts = email.split("@");
@@ -29,7 +30,7 @@ const toggle = (list: string[], item: string) =>
   list.includes(item) ? list.filter((i) => i !== item) : [...list, item];
 
 const Registration = () => {
-  const [usertype, setUsertype] = useState<string | null>(null);
+  const [usertype, setUsertype] = useState<UserType | null>(null);
   const [slide, setSlide] = useState(0);
 
   const [fullname, setFullname] = useState("");
@@ -54,7 +55,7 @@ const Registration = () => {
     setEmailValid(isValidEmail(value));
   };
 
-  const handleUsertypeSelect = (type: string) => {
+  const handleUsertypeSelect = (type: UserType) => {
     setUsertype(type);
     setSlide(1);
   };
@@ -70,41 +71,20 @@ const Registration = () => {
     if (!email || !password || !usertype || !emailValid) return;
     setPasswordsMatch(true);
 
-    try {
-      const res = await signup(email, password, usertype);
-      if (!res.success) {
-        alert("Registration failed: " + res.message);
-        return;
-      }
-
-      const loginRes = await login(email, password);
-      if (!loginRes.success) {
-        alert("Signup succeeded, but login failed. Please log in manually.");
-        return;
-      }
-
-      try {
-        await saveProfile(
-          usertype === "student"
-            ? { full_name: fullname, age, school, bio, interests: joinCauses(selectedInterests) }
-            : {
-                nonprofit_name: nonprofitName,
-                location,
-                category: joinCauses(selectedCauses),
-                statement: mission,
-              }
-        );
-      } catch {
-        alert("Account created, but saving your profile failed.");
-      }
-
-      setSlide(4);
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 2000);
-    } catch {
-      alert("An error occurred during registration. Please try again.");
+    const res = await signup(
+      email,
+      password,
+      usertype,
+      usertype === "student"
+        ? { full_name: fullname, age, school, bio, interests: joinCauses(selectedInterests) }
+        : { nonprofit_name: nonprofitName, location, category: joinCauses(selectedCauses), statement: mission }
+    );
+    if (!res.success) {
+      alert("Registration failed: " + res.message);
+      return;
     }
+    setSlide(4);
+    window.location.href = res.nextRoute || "/";
   };
 
   return (
@@ -220,7 +200,7 @@ const Registration = () => {
 
       {slide === 4 && (
         <div className="redirect-message-registration">
-          <p>Redirecting to your login...</p>
+          <p>Redirecting...</p>
         </div>
       )}
     </div>

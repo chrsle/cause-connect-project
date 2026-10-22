@@ -4,94 +4,63 @@ import {
   NonprofitProfile,
   OpportunityInput,
   StudentProfile,
+  UserType,
   Volunteer,
 } from '../types/types';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'https://causeconnectbackend.onrender.com/api';
-const TOKEN_KEY = 'token';
+// The server serves this app and the API from one origin (the dev server
+// proxies /api to it), so requests are relative and the session cookie is
+// first-party.
+const API_BASE = '/api';
 
 export interface AuthResponse {
   success: boolean;
   message: string;
-  userType?: string;
+  userType?: UserType;
   nextRoute?: string;
 }
 
-// Safari drops the API's cross-site cookie, so the token is also kept in
-// localStorage and sent as a Bearer header.
-async function send(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = localStorage.getItem(TOKEN_KEY);
-  const response = await fetch(API_BASE + path, {
-    ...init,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
-  });
-  if (response.status === 401) localStorage.removeItem(TOKEN_KEY);
-  return response;
-}
-
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const response = await send(path, {
+  const response = await fetch(API_BASE + path, {
     method,
+    headers: { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'An error occurred');
+  if (response.status === 401 && window.location.pathname !== '/') {
+    window.location.assign('/');
   }
-  return response.json();
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
+  return data;
 }
 
-export async function signup(email: string, password: string, usertype: string): Promise<AuthResponse> {
+async function authenticate(path: string, body: unknown): Promise<AuthResponse> {
   try {
-    const res = await send('/signup', { method: 'POST', body: JSON.stringify({ email, password, usertype }) });
-    if (!res.ok) return { success: false, message: await res.text() };
-    return { success: true, message: 'User created' };
-  } catch {
-    return { success: false, message: 'Network error' };
+    const data = await request<{ userType: UserType; nextRoute: string }>(path, 'POST', body);
+    return { success: true, message: 'Logged in', ...data };
+  } catch (err) {
+    return { success: false, message: err instanceof Error ? err.message : 'Network error' };
   }
 }
 
-export async function login(email: string, password: string): Promise<AuthResponse> {
-  try {
-    const res = await send('/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-    if (!res.ok) return { success: false, message: await res.text() };
+export const signup = (
+  email: string,
+  password: string,
+  usertype: UserType,
+  profile: StudentProfile | NonprofitProfile
+) => authenticate('/signup', { email, password, usertype, profile });
 
-    const data = await res.json();
-    if (data.token) localStorage.setItem(TOKEN_KEY, data.token);
-    return { success: true, message: 'Logged in', userType: data.userType, nextRoute: data.nextRoute };
-  } catch {
-    return { success: false, message: 'Network error' };
-  }
+export const login = (email: string, password: string) => authenticate('/login', { email, password });
+
+export async function logout() {
+  await request('/logout', 'POST').catch(() => undefined);
 }
 
-export async function logout(): Promise<AuthResponse> {
-  try {
-    const res = await send('/logout', { method: 'POST' });
-    return res.ok ? { success: true, message: 'Logged out' } : { success: false, message: 'Logout failed' };
-  } catch {
-    return { success: false, message: 'Network error' };
-  } finally {
-    localStorage.removeItem(TOKEN_KEY);
-  }
-}
-
-export async function getSession(): Promise<{ email: string } | null> {
-  try {
-    const res = await send('/session');
-    return res.ok ? await res.json() : null;
-  } catch {
-    return null;
-  }
-}
-
+export const getSession = () => request<{ email: string }>('/session');
 export const getMe = <Profile>() => request<CurrentUser<Profile>>('/me');
 export const getProfile = () => request<StudentProfile | NonprofitProfile>('/profile');
 export const saveProfile = (profile: StudentProfile | NonprofitProfile) => request('/profile', 'PUT', profile);
-export const updateAccount = (changes: { email?: string; currentPassword?: string; newPassword?: string }) =>
+export const updateAccount = (changes: { currentPassword: string; email?: string; newPassword?: string }) =>
   request('/account/update', 'POST', changes);
 
 export async function getNonprofitProfile(): Promise<NonprofitProfile> {
@@ -117,5 +86,4 @@ export const removeVolunteer = (eventId: number, userId: number) =>
 
 export const joinEvent = (eventId: number) => request('/events/volunteer', 'POST', { opportunity_id: eventId });
 export const leaveEvent = (eventId: number) => request(`/events/volunteer/cancel/${eventId}`, 'DELETE');
-export const getJoinedEventIds = async () =>
-  (await request<{ id: number }[]>('/events/volunteered')).map((event) => event.id);
+export const getJoinedEvents = () => request<Event[]>('/events/volunteered');

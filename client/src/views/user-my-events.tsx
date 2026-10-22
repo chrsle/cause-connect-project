@@ -3,9 +3,8 @@ import NavBar from "../components/navBar";
 import EventCard from "../components/eventCard";
 import EventCardCarousel from "../components/eventCardCarousel";
 import EventCardGrid from "../components/eventCardGrid";
-import { dummyStudent } from "../constants/dummyStudent";
 import { Event, StudentProfile } from "../types/types";
-import { getJoinedEventIds, getProfile, getUpcomingEvents } from "../utils/api";
+import { getJoinedEvents, getProfile } from "../utils/api";
 import { splitPastAndUpcoming } from "../utils/time";
 import "./styles/UserMyEvents.css";
 
@@ -24,8 +23,7 @@ function MyEvents() {
       }
 
       try {
-        const [upcoming, joinedIds] = await Promise.all([getUpcomingEvents(), getJoinedEventIds()]);
-        setEvents(upcoming.filter((event) => joinedIds.includes(event.id)));
+        setEvents(await getJoinedEvents());
       } catch (error) {
         console.error('Error fetching student events:', error);
       } finally {
@@ -63,7 +61,7 @@ function MyEvents() {
       <div className="landing-page__content">
         <div className="landing-page-header">
           <h1 className="landing-page__greeting">
-            Hello, <span className="highlight">{profile?.full_name || dummyStudent.full_name}</span>
+            Hello, <span className="highlight">{profile?.full_name || "there"}</span>
           </h1>
           <p className="landing-page__welcome">
             Here are <span className="highlight">your registered events</span>

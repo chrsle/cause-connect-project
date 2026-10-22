@@ -1,14 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Event, UserType } from "../types/types";
-import {
-  deleteOpportunity,
-  getJoinedEventIds,
-  getNonprofitProfile,
-  joinEvent,
-  leaveEvent,
-  updateOpportunity,
-} from "../utils/api";
+import { deleteOpportunity, getJoinedEvents, joinEvent, leaveEvent, updateOpportunity } from "../utils/api";
 import { formatDate, formatTimeRange } from "../utils/time";
 import "../views/styles/eventCard.css";
 import "../views/styles/expandedEventCard.css";
@@ -38,8 +31,8 @@ const ExpandedCardPortal: React.FC<ExpandedCardProps> = ({ isOpen, onClose, even
     setHasJoined(false);
     setIsCheckingJoinStatus(true);
     setError(null);
-    getJoinedEventIds()
-      .then((ids) => setHasJoined(ids.includes(event.id)))
+    getJoinedEvents()
+      .then((joined) => setHasJoined(joined.some((e) => e.id === event.id)))
       .catch(() => setHasJoined(false))
       .finally(() => setIsCheckingJoinStatus(false));
   }, [isOpen, event.id, userType]);
@@ -56,9 +49,7 @@ const ExpandedCardPortal: React.FC<ExpandedCardProps> = ({ isOpen, onClose, even
     setIsLoading(true);
     setError(null);
     try {
-      const profile = await getNonprofitProfile();
       await updateOpportunity(editedEvent.id, {
-        nonprofit_name: profile.nonprofit_name,
         title: editedEvent.title,
         description: editedEvent.body,
         date: editedEvent.startDate,
@@ -69,8 +60,8 @@ const ExpandedCardPortal: React.FC<ExpandedCardProps> = ({ isOpen, onClose, even
       setIsEditing(false);
       onEventUpdated?.();
       onClose();
-    } catch {
-      setError('Failed to update event. Please try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update event. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -104,11 +95,11 @@ const ExpandedCardPortal: React.FC<ExpandedCardProps> = ({ isOpen, onClose, even
         setHasJoined(true);
       }
     } catch (err) {
-      if (!hasJoined && err instanceof Error && err.message.includes('already')) {
+      if (!hasJoined && err instanceof Error && err.message.includes('already signed up')) {
         setHasJoined(true);
         setError('You have already joined this event!');
       } else {
-        setError(hasJoined ? 'Failed to cancel signup. Please try again.' : 'Failed to join event. Please try again.');
+        setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       }
     } finally {
       setIsLoading(false);

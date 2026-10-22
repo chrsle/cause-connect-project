@@ -4,7 +4,6 @@ import NavBar from "../components/navBar";
 import EventCard from "../components/eventCard";
 import EventCardCarousel from "../components/eventCardCarousel";
 import EventCardGrid from "../components/eventCardGrid";
-import { dummyOrganization } from "../constants/dummyOrgs";
 import { Event } from "../types/types";
 import { getMyOpportunities, getNonprofitProfile } from '../utils/api';
 import { splitPastAndUpcoming } from "../utils/time";
@@ -22,7 +21,7 @@ function OrgOpportunity() {
   useEffect(() => {
     getNonprofitProfile()
       .then((profile) => setOrganizationName(profile.nonprofit_name))
-      .catch(() => setOrganizationName(dummyOrganization.name))
+      .catch(() => setOrganizationName(null))
       .finally(() => setIsLoading(false));
   }, []);
 

@@ -3,7 +3,6 @@ import NavBar from "../components/navBar";
 import EventCard from "../components/eventCard";
 import EventCardCarousel from "../components/eventCardCarousel";
 import EventCardGrid from "../components/eventCardGrid";
-import { dummyStudent } from "../constants/dummyStudent";
 import { Event, StudentProfile } from "../types/types";
 import { getNearbyEvents, getProfile, getUpcomingEvents } from "../utils/api";
 import { sharesCause } from "../utils/causes";
@@ -40,12 +39,10 @@ const LandingPage = () => {
       try {
         const studentProfile = (await getProfile()) as StudentProfile;
         setProfile(studentProfile);
-        setCurrentLocation(studentProfile.school || dummyStudent.school);
+        setCurrentLocation(studentProfile.school || "");
         setLocationDetected(!!studentProfile.school);
       } catch {
         setProfile(null);
-        setCurrentLocation(dummyStudent.school);
-        setLocationDetected(false);
       }
 
       try {
@@ -113,7 +110,7 @@ const LandingPage = () => {
       <div className="landing-page__content">
         <div className="landing-page-header">
           <h1 className="landing-page__greeting">
-            Hello, <span className="highlight">{profile?.full_name || dummyStudent.full_name}</span>
+            Hello, <span className="highlight">{profile?.full_name || "there"}</span>
           </h1>
           <p className="landing-page__welcome">
             Welcome back to <span className="highlight"> your</span> platform for{" "}
@@ -127,7 +124,7 @@ const LandingPage = () => {
           <div className="location-filter">
             <div className="location-info">
               <span className="location-label">📍 Current Location: </span>
-              <span className="location-text">{currentLocation}</span>
+              <span className="location-text">{currentLocation || "Not set"}</span>
               <span className={`location-status ${locationDetected ? 'detected' : locationManuallyChanged ? 'custom' : 'default'}`}>
                 {locationDetected ? '(detected)' : locationManuallyChanged ? '(custom)' : '(default)'}
               </span>

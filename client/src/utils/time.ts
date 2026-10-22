@@ -1,5 +1,27 @@
 import { Event } from '../types/types';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Events are stored as Los Angeles wall-clock date and time. Rendering "now" in
+// the same 'YYYY-MM-DD HH:MM' shape makes "has this event started" a string
+// comparison that gives the same answer in every visitor's timezone.
+export function nowInLosAngeles(now = new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(now)
+      .map((part) => [part.type, part.value])
+  );
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+}
+
 // new Date('YYYY-MM-DD') reads the string as UTC midnight, which is the
 // previous day in California; building the date from parts keeps it local.
 function parseDate(date: string) {
@@ -20,18 +42,17 @@ export function formatTime(time: string) {
 export const formatTimeRange = (start: string, end?: string) =>
   end ? `${formatTime(start)} - ${formatTime(end)}` : formatTime(start);
 
-export function eventStart(event: Pick<Event, 'startDate' | 'startTime'>) {
-  const start = parseDate(event.startDate);
-  const [hours, minutes] = event.startTime.split(':').map(Number);
-  start.setHours(hours, minutes, 0, 0);
-  return start;
+type Scheduled = Pick<Event, 'startDate' | 'startTime'>;
+
+export const hasStarted = (event: Scheduled, now = new Date()) =>
+  `${event.startDate} ${event.startTime}` <= nowInLosAngeles(now);
+
+export function startsWithinDays(event: Scheduled, days: number, now = new Date()) {
+  const today = nowInLosAngeles(now).slice(0, 10);
+  return !hasStarted(event, now) && (Date.parse(event.startDate) - Date.parse(today)) / DAY_MS <= days;
 }
 
-export const hasStarted = (event: Pick<Event, 'startDate' | 'startTime'>, now = new Date()) =>
-  eventStart(event) <= now;
-
-export function splitPastAndUpcoming<T extends Event>(events: T[]) {
-  const now = new Date();
+export function splitPastAndUpcoming<T extends Event>(events: T[], now = new Date()) {
   return {
     upcoming: events.filter((event) => !hasStarted(event, now)),
     past: events.filter((event) => hasStarted(event, now)),

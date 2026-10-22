@@ -3,20 +3,13 @@ import { Event, UserType } from "../types/types";
 import "../views/styles/eventCard.css";
 import "../views/styles/expandedEventCard.css";
 import ExpandedCardPortal from "./expandedCard";
-import { eventStart, formatDate, formatTimeRange, hasStarted } from "../utils/time";
+import { formatDate, formatTimeRange, hasStarted, startsWithinDays } from "../utils/time";
 
 interface EventCardProps {
   event: Event;
   userType: UserType;
   onEventUpdated?: () => void;
 }
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-const startsThisWeek = (event: Event) => {
-  const msUntilStart = eventStart(event).getTime() - Date.now();
-  return msUntilStart > 0 && Math.ceil(msUntilStart / DAY_MS) <= 7;
-};
 
 const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -32,7 +25,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, userType, onEventUpdated }
     <>
       <div className="event-card">
         <div className={`card-container ${isOpen ? "background-disabled" : ""}`}>
-          {startsThisWeek(event) && (
+          {startsWithinDays(event, 7) && (
             <div className="event-badge upcoming">
               <span>Upcoming</span>
             </div>

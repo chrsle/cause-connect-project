@@ -130,7 +130,6 @@ function CreateEvent() {
       
       try {
         const result = await createOpportunity({
-          nonprofit_name: organizationProfile.nonprofit_name,
           title: formData.name,
           description: formData.description,
           date: formData.date,
@@ -146,8 +145,8 @@ function CreateEvent() {
             opportunityId: result.opportunityId
           } 
         });
-      } catch {
-        setErrors({ name: 'Failed to create opportunity. Please try again.' });
+      } catch (err) {
+        setErrors({ name: err instanceof Error ? err.message : 'Failed to create opportunity. Please try again.' });
         setCurrentStep('details');
       } finally {
         setIsSubmitting(false);

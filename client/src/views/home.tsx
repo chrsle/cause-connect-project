@@ -43,8 +43,9 @@ const Home = () => {
             <form onSubmit={handleLogin}>
               <div className="form-group">
                 <input
-                  type="text"
+                  type="email"
                   id="email"
+                  autoComplete="email"
                   placeholder="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -56,6 +57,7 @@ const Home = () => {
                 <input
                   type="password"
                   id="password"
+                  autoComplete="current-password"
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

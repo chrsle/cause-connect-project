@@ -45,7 +45,6 @@ export type Volunteer = StudentProfile & {
 };
 
 export type OpportunityInput = {
-  nonprofit_name: string;
   title: string;
   description: string;
   date: string;
