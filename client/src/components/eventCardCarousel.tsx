@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import "../views/styles/eventCardCarousel.css";
 import { Event } from "../types/types";
-import EventCard from './eventCard';
-import DraftEventCard from './draftEventCard';
 
 interface EventCardCarouselProps {
   events: Event[];
@@ -18,9 +16,7 @@ const EventCardCarousel: React.FC<EventCardCarouselProps> = ({ events, renderCar
   };
 
   const handleNext = () => {
-    setCurrentIndex((prevIndex) =>
-      Math.min(prevIndex + 1, events.length - 1)
-    );
+    setCurrentIndex((prevIndex) => Math.min(prevIndex + 1, events.length - 1));
   };
 
   return (
@@ -34,8 +30,8 @@ const EventCardCarousel: React.FC<EventCardCarouselProps> = ({ events, renderCar
           className="carousel-track"
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
         >
-          {events.map((event, index) => (
-            <div key={index} className="carousel-item">     
+          {events.map((event) => (
+            <div key={event.id} className="carousel-item">
               {renderCard(event, userType)}
             </div>
           ))}
